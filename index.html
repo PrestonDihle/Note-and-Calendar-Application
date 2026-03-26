@@ -1,0 +1,1057 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Note & Calendar App</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: Arial, sans-serif; background: #e8e8e8; height: 100vh; overflow: hidden; }
+
+    /* ── NAV ── */
+    .nav {
+      background: #1e3a4a;
+      color: white;
+      padding: 6px 14px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      height: 38px;
+    }
+    .nav strong { font-size: 14px; margin-right: 8px; }
+    .nav button {
+      background: transparent;
+      border: 1px solid rgba(255,255,255,0.5);
+      color: white;
+      padding: 3px 14px;
+      cursor: pointer;
+      border-radius: 3px;
+      font-size: 13px;
+    }
+    .nav button.active { background: white; color: #1e3a4a; font-weight: bold; }
+
+    /* ── PAGES ── */
+    .page { display: none; }
+    .page.active { display: flex; }
+
+    /* ── HOME ── */
+    #home-page {
+      height: calc(100vh - 38px);
+      padding: 6px;
+      gap: 6px;
+      overflow: hidden;
+    }
+    .col { display: flex; flex-direction: column; gap: 6px; overflow: hidden; }
+    .col-tasks  { width: 210px; min-width: 190px; }
+    .col-notes  { width: 240px; min-width: 210px; }
+    .col-cal    { flex: 1; min-width: 320px; }
+    .col-lr     { width: 190px; min-width: 170px; }
+
+    /* ── SECTION BOXES ── */
+    .box {
+      background: white;
+      border: 1px solid #bbb;
+      padding: 6px 8px;
+    }
+    .box h3 {
+      text-align: center;
+      font-size: 13px;
+      font-weight: bold;
+      border-bottom: 1px solid #ccc;
+      padding-bottom: 4px;
+      margin-bottom: 6px;
+    }
+    .box-scroll { overflow-y: auto; flex: 1; }
+
+    /* ── TOP 3 ── */
+    .top3-row {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      padding: 4px 0;
+      border-bottom: 1px solid #eee;
+      min-height: 34px;
+    }
+    .top3-row:last-child { border-bottom: none; }
+    .top3-row input[type=checkbox] { width: 16px; height: 16px; flex-shrink: 0; cursor: pointer; }
+    .top3-num { font-weight: bold; font-size: 14px; min-width: 18px; color: #333; }
+    .top3-row .task-input {
+      flex: 1;
+      border: none;
+      border-bottom: 1px dotted #aaa;
+      font-size: 13px;
+      outline: none;
+      background: transparent;
+      min-width: 0;
+    }
+    .top3-row.done .task-input { text-decoration: line-through; color: #aaa; }
+    .del-btn {
+      background: none; border: none; cursor: pointer;
+      color: #ccc; font-size: 12px; padding: 0 2px;
+      flex-shrink: 0;
+    }
+    .del-btn:hover { color: #e55; }
+
+    /* ── TASK LIST ── */
+    .task-row {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      padding: 3px 0;
+      border-bottom: 1px solid #f0f0f0;
+    }
+    .task-row input[type=checkbox] { width: 14px; height: 14px; cursor: pointer; flex-shrink: 0; }
+    .task-row .task-input {
+      flex: 1;
+      border: none;
+      border-bottom: 1px dotted #bbb;
+      font-size: 12px;
+      outline: none;
+      background: transparent;
+      min-width: 0;
+    }
+    .task-row.done .task-input { text-decoration: line-through; color: #aaa; }
+
+    /* ── ACTION BUTTONS ── */
+    .btn-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 5px;
+      padding: 4px 0;
+    }
+    .btn-action {
+      background: #2c5f7a;
+      color: white;
+      border: none;
+      padding: 10px 6px;
+      font-size: 12px;
+      font-weight: bold;
+      cursor: pointer;
+      border-radius: 4px;
+      text-align: center;
+      line-height: 1.3;
+    }
+    .btn-action:hover { background: #1e4a5c; }
+
+    /* ── SEARCH ── */
+    .search-bar {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 0 6px;
+    }
+    .search-bar label { font-weight: bold; font-size: 13px; white-space: nowrap; }
+    .search-bar input {
+      flex: 1;
+      border: none;
+      border-bottom: 2px solid #444;
+      font-size: 13px;
+      outline: none;
+      padding: 2px;
+      min-width: 0;
+    }
+    .search-icon { font-size: 16px; }
+
+    /* ── BIG IDEAS ── */
+    .idea-row {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      padding: 3px 0;
+    }
+    .idea-num { font-weight: bold; font-size: 14px; min-width: 22px; }
+    .idea-row input {
+      flex: 1;
+      border: none;
+      border-bottom: 1px dotted #aaa;
+      font-size: 13px;
+      outline: none;
+      background: transparent;
+      min-width: 0;
+    }
+
+    /* ── NOTES ── */
+    .note-item {
+      border-bottom: 1px dashed #bbb;
+      padding: 5px 0;
+      margin-bottom: 2px;
+    }
+    .note-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+    }
+    .note-title { font-weight: bold; font-size: 13px; }
+    .note-body { font-size: 12px; color: #444; margin-top: 2px; white-space: pre-wrap; word-break: break-word; }
+    .note-sep { text-align: center; color: #999; font-size: 11px; letter-spacing: 2px; margin: 3px 0; }
+
+    /* ── CALENDAR ── */
+    .cal-nav {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 5px;
+    }
+    .cal-nav button {
+      background: #2c5f7a;
+      color: white;
+      border: none;
+      padding: 2px 10px;
+      cursor: pointer;
+      border-radius: 3px;
+      font-size: 14px;
+    }
+    .cal-nav span { font-weight: bold; font-size: 15px; }
+    .cal-table { width: 100%; border-collapse: collapse; }
+    .cal-table th {
+      background: #2c5f7a;
+      color: white;
+      text-align: center;
+      font-size: 12px;
+      padding: 4px 2px;
+    }
+    .cal-table td {
+      text-align: center;
+      font-size: 13px;
+      padding: 4px 2px;
+      border: 1px solid #f0f0f0;
+      cursor: pointer;
+      position: relative;
+    }
+    .cal-table td:hover:not(.empty) { background: #dce8f0; }
+    .cal-table td.today { background: #2c5f7a; color: white; border-radius: 50%; font-weight: bold; }
+    .cal-table td.selected { background: #a8ccde; border-radius: 50%; }
+    .cal-table td.has-event { font-weight: bold; color: #1a5276; }
+    .cal-table td.has-event::after {
+      content: '●';
+      font-size: 6px;
+      color: #c0392b;
+      position: absolute;
+      bottom: 1px;
+      right: 2px;
+    }
+    .cal-table td.today.has-event::after { color: #ffd; }
+
+    /* ── SCHEDULE ── */
+    .schedule-wrap { overflow-y: auto; flex: 1; }
+    .sched-row {
+      display: flex;
+      border-bottom: 1px solid #eee;
+      min-height: 26px;
+    }
+    .sched-time {
+      font-size: 11px;
+      color: #666;
+      width: 46px;
+      min-width: 46px;
+      padding: 3px 4px;
+      border-right: 1px solid #ddd;
+      display: flex;
+      align-items: center;
+    }
+    .sched-content {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      padding: 2px 4px;
+    }
+    .sched-event-label {
+      font-size: 10px;
+      color: #1a5276;
+      font-style: italic;
+    }
+    .sched-content input {
+      width: 100%;
+      border: none;
+      outline: none;
+      font-size: 12px;
+      background: transparent;
+    }
+
+    /* ── LONG RANGE ── */
+    .lr-table { width: 100%; border-collapse: collapse; font-size: 11px; }
+    .lr-table tr { border-bottom: 1px solid #f0f0f0; cursor: pointer; }
+    .lr-table tr:hover { background: #f0f5f8; }
+    .lr-table td { padding: 2px 3px; vertical-align: top; }
+    .lr-date { min-width: 30px; color: #555; white-space: nowrap; }
+    .lr-day  { min-width: 16px; color: #888; }
+    .lr-evt  { font-size: 10px; color: #1a5276; }
+    .lr-table tr.weekend { background: #f8f8f6; }
+    .lr-table tr.lr-today td { background: #c8dcea; }
+
+    /* ── MODALS ── */
+    .modal {
+      display: none;
+      position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+      background: rgba(0,0,0,0.45);
+      z-index: 200;
+      justify-content: center;
+      align-items: center;
+    }
+    .modal.open { display: flex; }
+    .modal-box {
+      background: white;
+      padding: 22px 24px;
+      min-width: 300px;
+      max-width: 400px;
+      border-radius: 5px;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.25);
+    }
+    .modal-box h3 { color: #2c5f7a; margin-bottom: 14px; font-size: 16px; }
+    .modal-box label { display: block; font-size: 12px; font-weight: bold; margin-bottom: 3px; color: #555; }
+    .modal-box input,
+    .modal-box textarea,
+    .modal-box select {
+      width: 100%;
+      padding: 6px 8px;
+      border: 1px solid #ccc;
+      border-radius: 3px;
+      font-size: 13px;
+      margin-bottom: 10px;
+      font-family: Arial, sans-serif;
+    }
+    .modal-box textarea { height: 90px; resize: vertical; }
+    .modal-footer { display: flex; gap: 8px; justify-content: flex-end; margin-top: 4px; }
+    .modal-footer button {
+      padding: 6px 18px;
+      border: none;
+      border-radius: 3px;
+      cursor: pointer;
+      font-size: 13px;
+    }
+    .btn-save   { background: #2c5f7a; color: white; font-weight: bold; }
+    .btn-save:hover { background: #1e4a5c; }
+    .btn-cancel { background: #ddd; color: #333; }
+
+    /* ── YEAR VIEW ── */
+    #year-page {
+      flex-direction: column;
+      height: calc(100vh - 38px);
+      overflow-y: auto;
+      padding: 10px 14px;
+      gap: 10px;
+    }
+    .year-nav {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      justify-content: center;
+    }
+    .year-nav button {
+      background: #2c5f7a; color: white; border: none;
+      padding: 4px 14px; cursor: pointer; border-radius: 3px; font-size: 15px;
+    }
+    .year-nav span { font-size: 20px; font-weight: bold; color: #1e3a4a; }
+    .months-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 12px;
+    }
+    .month-card {
+      background: white;
+      border: 1px solid #ccc;
+      padding: 8px;
+    }
+    .month-card h4 {
+      text-align: center;
+      font-size: 13px;
+      font-weight: bold;
+      color: #2c5f7a;
+      margin-bottom: 6px;
+      padding-bottom: 4px;
+      border-bottom: 1px solid #eee;
+    }
+    .mini-cal { width: 100%; border-collapse: collapse; margin-bottom: 6px; }
+    .mini-cal th {
+      background: #2c5f7a; color: white;
+      font-size: 10px; padding: 3px 2px; text-align: center;
+    }
+    .mini-cal td {
+      font-size: 11px; padding: 3px 2px;
+      text-align: center; border: 1px solid #f5f5f5;
+    }
+    .mini-cal td.mc-today {
+      background: #2c5f7a; color: white; border-radius: 50%; font-weight: bold;
+    }
+    .mini-cal td.mc-event {
+      background: #e0edf5; color: #1a5276; font-weight: bold;
+    }
+    .yr-events { font-size: 10px; }
+    .yr-event-row {
+      display: flex;
+      gap: 4px;
+      padding: 2px 0;
+      border-bottom: 1px solid #f5f5f5;
+    }
+    .yr-event-date { min-width: 30px; color: #888; font-size: 10px; flex-shrink: 0; }
+    .yr-event-text { color: #1a5276; word-break: break-word; }
+
+    /* ── UTILITY ── */
+    .empty-msg { color: #bbb; font-size: 12px; font-style: italic; padding: 4px 0; }
+  </style>
+</head>
+<body>
+
+<!-- NAV -->
+<div class="nav">
+  <strong>&#128203; Note &amp; Calendar</strong>
+  <button class="active" onclick="showPage('home')">Home</button>
+  <button onclick="showPage('year')">Year View (2026)</button>
+</div>
+
+<!-- ═══════════════════════════ HOME PAGE ═══════════════════════════ -->
+<div id="home-page" class="page active">
+
+  <!-- LEFT: Tasks -->
+  <div class="col col-tasks">
+
+    <!-- Top 3 -->
+    <div class="box">
+      <h3>Top 3 Tasks</h3>
+      <div id="top3-container"></div>
+    </div>
+
+    <!-- Task List -->
+    <div class="box box-scroll" style="flex:1;">
+      <h3>Task List</h3>
+      <div id="task-container"></div>
+    </div>
+
+    <!-- Buttons -->
+    <div class="btn-grid">
+      <button class="btn-action" onclick="openModal('modal-event')">Add<br>Calendar Item</button>
+      <button class="btn-action" onclick="openModal('modal-task')">Add<br>Task</button>
+      <button class="btn-action" onclick="openModal('modal-idea')">Add<br>Big Idea</button>
+      <button class="btn-action" onclick="openModal('modal-note')">Add<br>Note</button>
+    </div>
+  </div>
+
+  <!-- CENTER: Notes -->
+  <div class="col col-notes">
+
+    <!-- Search -->
+    <div class="box">
+      <div class="search-bar">
+        <label>Find Note:</label>
+        <input type="text" id="search-input" oninput="searchNotes(this.value)" placeholder="">
+        <span class="search-icon">&#128269;</span>
+      </div>
+    </div>
+
+    <!-- Big Ideas -->
+    <div class="box">
+      <h3>Big Ideas</h3>
+      <div id="ideas-container"></div>
+    </div>
+
+    <!-- Notes -->
+    <div class="box box-scroll" style="flex:1;">
+      <h3>Notes</h3>
+      <div id="notes-container"></div>
+    </div>
+  </div>
+
+  <!-- CAL + SCHEDULE -->
+  <div class="col col-cal">
+
+    <!-- Monthly Calendar -->
+    <div class="box">
+      <div class="cal-nav">
+        <button onclick="prevMonth()">&#9664;</button>
+        <span id="cal-title"></span>
+        <button onclick="nextMonth()">&#9654;</button>
+      </div>
+      <table class="cal-table" id="cal-table"></table>
+    </div>
+
+    <!-- Daily Schedule -->
+    <div class="box" style="flex:1; display:flex; flex-direction:column; overflow:hidden;">
+      <h3 id="sched-title">Today's Schedule</h3>
+      <div class="schedule-wrap" id="sched-container"></div>
+    </div>
+  </div>
+
+  <!-- RIGHT: Long Range -->
+  <div class="col col-lr">
+    <div class="box box-scroll" style="flex:1; padding:5px 6px;">
+      <h3 id="lr-title">Long Range</h3>
+      <table class="lr-table" id="lr-table"></table>
+    </div>
+  </div>
+
+</div><!-- end home-page -->
+
+<!-- ═══════════════════════════ YEAR PAGE ═══════════════════════════ -->
+<div id="year-page" class="page">
+  <div class="year-nav">
+    <button onclick="prevYear()">&#9664;</button>
+    <span id="year-label">2026</span>
+    <button onclick="nextYear()">&#9654;</button>
+  </div>
+  <div class="months-grid" id="months-grid"></div>
+</div>
+
+<!-- ═══════════════════════════ MODALS ═══════════════════════════ -->
+
+<!-- Add Task -->
+<div class="modal" id="modal-task">
+  <div class="modal-box">
+    <h3>Add Task</h3>
+    <label>Task Description</label>
+    <input type="text" id="new-task-text" placeholder="What needs to be done?">
+    <label>Type</label>
+    <select id="new-task-priority">
+      <option value="list">Task List</option>
+      <option value="top">Top 3 Priority</option>
+    </select>
+    <div class="modal-footer">
+      <button class="btn-cancel" onclick="closeModal('modal-task')">Cancel</button>
+      <button class="btn-save" onclick="addTask()">Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- Add Event -->
+<div class="modal" id="modal-event">
+  <div class="modal-box">
+    <h3>Add Calendar Event</h3>
+    <label>Event Name</label>
+    <input type="text" id="new-event-text" placeholder="Event name">
+    <label>Date</label>
+    <input type="date" id="new-event-date">
+    <label>Time (optional)</label>
+    <input type="time" id="new-event-time">
+    <div class="modal-footer">
+      <button class="btn-cancel" onclick="closeModal('modal-event')">Cancel</button>
+      <button class="btn-save" onclick="addEvent()">Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- Add Note -->
+<div class="modal" id="modal-note">
+  <div class="modal-box">
+    <h3>Add Note</h3>
+    <label>Title</label>
+    <input type="text" id="new-note-title" placeholder="Note title">
+    <label>Content</label>
+    <textarea id="new-note-content" placeholder="Write your note here..."></textarea>
+    <div class="modal-footer">
+      <button class="btn-cancel" onclick="closeModal('modal-note')">Cancel</button>
+      <button class="btn-save" onclick="addNote()">Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- Add Big Idea -->
+<div class="modal" id="modal-idea">
+  <div class="modal-box">
+    <h3>Add Big Idea</h3>
+    <label>Your Idea</label>
+    <input type="text" id="new-idea-text" placeholder="Enter your big idea...">
+    <div class="modal-footer">
+      <button class="btn-cancel" onclick="closeModal('modal-idea')">Cancel</button>
+      <button class="btn-save" onclick="addIdea()">Save</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ═══════════════════════════════════════════
+//  PRE-LOADED 2026 CALENDAR EVENTS
+// ═══════════════════════════════════════════
+const PRELOADED = {
+  2026: {
+    0: { // January
+      5:  ['Lina Off'],
+      6:  ['Intel Support to Targeting','Lina Off'],
+      7:  ['Intel Support to Targeting','R2 Conference'],
+      8:  ['Intel Support to Targeting','R2 Conference'],
+      9:  ['Intel Support to Targeting'],
+      10: ['Emma - Match in Stuttgart'],
+      23: ['STEMposium Parents Meeting (1500)'],
+      28: ['ARMS Start','House Inspection'],
+      30: ['2-159 Daddy Daughter Dance'],
+      31: ['Continuing Resolution','Bad Windsheim NY Reception (1500)']
+    },
+    1: { // February
+      2:  ['SIO Conference',"Sylvia's B-Day"],
+      3:  ['SIO Conference'],
+      4:  ['SIO Conference','ARMS End'],
+      5:  ['SIO Conference'],
+      6:  ['Garrison Spring Social'],
+      7:  ['Air Rifle Challenge'],
+      8:  ['Super Bowl'],
+      9:  ['Emma Travel SP'],
+      10: ['Staff Off-Site'],
+      11: ['2-159 QTB / S2 Dinner'],
+      12: ['Crailsheim Staff Ride'],
+      14: ["Valentine's Day"],
+      16: ['Emma Return / Lina Off'],
+      17: ['Lina Off','DCG-R Visit'],
+      18: ['Lina Off / Pick up Ida','DCG-R Visit'],
+      19: ['Lina Off','DCG-R Visit'],
+      20: ['Lina Off','DCG-R Visit'],
+      23: ['1-214 QTB'],
+      24: ['1-214 COC (HHC & D Co)','TENTEX Start'],
+      27: ['TENTEX End']
+    },
+    2: { // March
+      16:['Warfighter'],17:['Warfighter'],18:['Warfighter'],
+      19:['Warfighter'],20:['Warfighter'],21:['Warfighter'],
+      22:['Warfighter'],23:['Warfighter'],24:['Warfighter'],
+      25:['Warfighter AAR'],26:['DODEA Off'],
+      30:['DODEA Off / Lina Off'],31:['DODEA Off','Sylvia & Lina Off']
+    },
+    3: { // April
+      1: ['DODEA Off','Sylvia & Lina Off'],
+      2: ['DODEA Off','Sylvia & Lina Off'],
+      3: ['DODEA Off / Lina Off'],4:['DODEA Off / Lina Off'],
+      5: ['DODEA Off / Lina Off'],6:['DODEA Off / Lina Off'],
+      7: ['Sylvia & Lina Off',"Preston's B-Day"],
+      8: ['Sylvia & Lina Off'],
+      9: ['Sylvia & Lina Off','JROTC Ball'],
+      10:['Sylvia & Lina Off'],
+      13:['HHC SFRG MTG, 1700'],
+      14:['Ida vet appointment'],
+      23:['Fly to Romania'],
+      24:['Wedding'],
+      25:['Fly to Germany'],
+      29:['Noise Abatement Commission Meeting']
+    },
+    4: { // May
+      1: ['Lina Off'],
+      4: ["Helga's Birthday"],
+      6: ['Real Property Planning Board'],
+      11:['Intel GEP'],12:['Intel GEP'],13:['Intel GEP'],
+      14:['Lina Off','Intel GEP'],15:['Intel GEP'],
+      17:['Visit to the Freilandmuseum'],
+      25:['Lina Off'],26:['Sylvia & Lina Off'],
+      27:['Sylvia & Lina Off'],28:['Sylvia & Lina Off'],29:['Lina Off']
+    },
+    5: { // June
+      1:['Lina Off'],2:['Lina Off'],3:['Lina Off'],
+      4:['Lina Off'],5:['Lina Off'],
+      9:['DODEA Last Day of School']
+    },
+    6: { // July
+      13:['2026 EU/AF Security Conference'],
+      14:['2026 EU/AF Security Conference'],
+      15:['2026 EU/AF Security Conference'],
+      16:['2026 EU/AF Security Conference'],
+      17:['2026 EU/AF Security Conference'],
+      28:['Warsaw Staff Ride'],29:['Warsaw Staff Ride'],
+      30:['Warsaw Staff Ride'],31:['Warsaw Staff Ride']
+    },
+    7: { // August
+      3: ['Lina Summer Break Start'],
+      8: ["Lina's B-Day"],
+      17:['DODEA 1st Day of School'],
+      23:["Noah's B-Day"]
+    },
+    8: { // September
+      1: ['Sylvia Off'],
+      2: ['Sylvia Off',"Emma's B-Day"],
+      3: ['Sylvia Off'],8:['Sylvia Off'],
+      9: ['Sylvia Off'],10:['Sylvia Off'],
+      14:['Lina Summer Break End']
+    },
+    9:{}, 10:{}, 11:{}
+  }
+};
+
+// ═══════════════════════════════════════════
+//  APP STATE (persisted to localStorage)
+// ═══════════════════════════════════════════
+const DEFAULT_STATE = {
+  top3:   [{text:'',done:false},{text:'',done:false},{text:'',done:false}],
+  tasks:  [],
+  ideas:  [],
+  notes:  [],
+  events: {},   // key "YYYY-M-D" → [{text,time}]
+  sched:  {}    // key "YYYY-M-D-H" → string
+};
+
+let S = JSON.parse(localStorage.getItem('nca_v1') || 'null') || DEFAULT_STATE;
+function save() { localStorage.setItem('nca_v1', JSON.stringify(S)); }
+
+// ═══════════════════════════════════════════
+//  HELPERS
+// ═══════════════════════════════════════════
+const MONTHS = ['January','February','March','April','May','June',
+                'July','August','September','October','November','December'];
+const DAY_HDRS = ['SUN','MON','TUE','WED','THUR','FRI','SAT'];
+const DAY_LTR  = ['S','M','T','W','T','F','S'];
+const TODAY    = new Date();
+
+function ordSuffix(d) { return d===1?'st':d===2?'nd':d===3?'rd':'th'; }
+function esc(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+
+function getEvents(year, month, day) {
+  const pre  = (PRELOADED[year]?.[month]?.[day] || []).map(t => ({text:t,time:'',pre:true}));
+  const user = S.events[`${year}-${month}-${day}`] || [];
+  return [...pre, ...user];
+}
+
+// ═══════════════════════════════════════════
+//  NAVIGATION
+// ═══════════════════════════════════════════
+function showPage(p) {
+  document.querySelectorAll('.page').forEach(el => el.classList.remove('active'));
+  document.querySelectorAll('.nav button').forEach(el => el.classList.remove('active'));
+  document.getElementById(p + '-page').classList.add('active');
+  document.querySelectorAll('.nav button')[p==='home'?0:1].classList.add('active');
+  if (p === 'year') renderYear();
+}
+
+// ═══════════════════════════════════════════
+//  CALENDAR STATE
+// ═══════════════════════════════════════════
+let calYear  = TODAY.getFullYear();
+let calMonth = TODAY.getMonth();
+let selDate  = { y: TODAY.getFullYear(), m: TODAY.getMonth(), d: TODAY.getDate() };
+
+function prevMonth() { calMonth--; if(calMonth<0){calMonth=11;calYear--;} renderAll(); }
+function nextMonth() { calMonth++; if(calMonth>11){calMonth=0;calYear++;} renderAll(); }
+
+function selectDay(d) {
+  selDate = {y:calYear, m:calMonth, d};
+  document.getElementById('sched-title').textContent =
+    `${MONTHS[calMonth]} ${d}, ${calYear} — Schedule`;
+  renderCalendar();
+  renderSchedule();
+  renderLR();
+}
+
+// ═══════════════════════════════════════════
+//  RENDER: CALENDAR
+// ═══════════════════════════════════════════
+function renderCalendar() {
+  document.getElementById('cal-title').textContent = `${MONTHS[calMonth]} ${calYear}`;
+  const first = new Date(calYear, calMonth, 1).getDay();
+  const dim   = new Date(calYear, calMonth+1, 0).getDate();
+
+  let h = '<thead><tr>' + DAY_HDRS.map(d=>`<th>${d}</th>`).join('') + '</tr></thead><tbody>';
+  let day = 1;
+  for (let row=0; row<6; row++) {
+    h += '<tr>';
+    for (let col=0; col<7; col++) {
+      if ((row===0 && col<first) || day>dim) { h+='<td class="empty"></td>'; }
+      else {
+        const evs = getEvents(calYear, calMonth, day);
+        let cls = '';
+        if (day===TODAY.getDate() && calMonth===TODAY.getMonth() && calYear===TODAY.getFullYear()) cls+=' today';
+        else if (selDate.y===calYear && selDate.m===calMonth && selDate.d===day) cls+=' selected';
+        if (evs.length) cls+=' has-event';
+        h += `<td class="${cls.trim()}" onclick="selectDay(${day})">${day}</td>`;
+        day++;
+      }
+    }
+    h += '</tr>';
+    if (day>dim) break;
+  }
+  h += '</tbody>';
+  document.getElementById('cal-table').innerHTML = h;
+}
+
+// ═══════════════════════════════════════════
+//  RENDER: SCHEDULE
+// ═══════════════════════════════════════════
+function renderSchedule() {
+  const {y,m,d} = selDate;
+  const evs = getEvents(y,m,d);
+  let h = '';
+  for (let hr=6; hr<=22; hr++) {
+    const key = `${y}-${m}-${d}-${hr}`;
+    const val = esc(S.sched[key] || '');
+    const tStr = hr.toString().padStart(2,'0')+'00';
+
+    // Pre-loaded events with a matching time, or timed user events
+    const timed = evs.filter(e => {
+      if (!e.time) return false;
+      const [eh] = e.time.split(':');
+      return parseInt(eh) === hr;
+    });
+
+    h += `<div class="sched-row">
+      <div class="sched-time">${tStr}</div>
+      <div class="sched-content">
+        ${timed.map(e=>`<div class="sched-event-label">${esc(e.text)}</div>`).join('')}
+        <input type="text" value="${val}"
+               onchange="saveSchedEntry('${key}',this.value)"
+               placeholder="">
+      </div>
+    </div>`;
+  }
+  document.getElementById('sched-container').innerHTML = h;
+}
+
+function saveSchedEntry(key, val) { S.sched[key]=val; save(); }
+
+// ═══════════════════════════════════════════
+//  RENDER: LONG RANGE SIDEBAR
+// ═══════════════════════════════════════════
+function renderLR() {
+  document.getElementById('lr-title').textContent = `${MONTHS[calMonth]} ${calYear}`;
+  const dim = new Date(calYear, calMonth+1, 0).getDate();
+  let h = '';
+  for (let d=1; d<=dim; d++) {
+    const dow = new Date(calYear, calMonth, d).getDay();
+    const evs = getEvents(calYear, calMonth, d);
+    const evTxt = evs.map(e=>esc(e.text)).join(' / ');
+    const isWknd = dow===0||dow===6;
+    const isTdy  = d===TODAY.getDate() && calMonth===TODAY.getMonth() && calYear===TODAY.getFullYear();
+    h += `<tr class="${isWknd?'weekend':''} ${isTdy?'lr-today':''}" onclick="selectDay(${d})">
+      <td class="lr-date">${d}${ordSuffix(d)}</td>
+      <td class="lr-day">${DAY_LTR[dow]}</td>
+      <td class="lr-evt">${evTxt}</td>
+    </tr>`;
+  }
+  document.getElementById('lr-table').innerHTML = h;
+}
+
+// ═══════════════════════════════════════════
+//  RENDER: TOP 3 TASKS
+// ═══════════════════════════════════════════
+function renderTop3() {
+  let h = '';
+  for (let i=0; i<3; i++) {
+    const t = S.top3[i];
+    h += `<div class="top3-row ${t.done?'done':''}">
+      <input type="checkbox" ${t.done?'checked':''} onchange="toggleTop3(${i},this.checked)">
+      <span class="top3-num">${i+1}</span>
+      <input class="task-input" type="text" value="${esc(t.text)}"
+             onchange="S.top3[${i}].text=this.value;save();"
+             placeholder="Task ${i+1}...">
+      <button class="del-btn" onclick="clearTop3(${i})">✕</button>
+    </div>`;
+  }
+  document.getElementById('top3-container').innerHTML = h;
+}
+function toggleTop3(i,v){ S.top3[i].done=v; save(); renderTop3(); }
+function clearTop3(i)   { S.top3[i]={text:'',done:false}; save(); renderTop3(); }
+
+// ═══════════════════════════════════════════
+//  RENDER: TASK LIST
+// ═══════════════════════════════════════════
+function renderTasks() {
+  if (!S.tasks.length) {
+    document.getElementById('task-container').innerHTML =
+      '<div class="empty-msg">No tasks yet. Add one below.</div>';
+    return;
+  }
+  let h = '';
+  S.tasks.forEach((t,i) => {
+    h += `<div class="task-row ${t.done?'done':''}">
+      <input type="checkbox" ${t.done?'checked':''} onchange="toggleTask(${i},this.checked)">
+      <input class="task-input" type="text" value="${esc(t.text)}"
+             onchange="S.tasks[${i}].text=this.value;save();"
+             style="${t.done?'text-decoration:line-through;color:#aaa;':''}">
+      <button class="del-btn" onclick="removeTask(${i})">✕</button>
+    </div>`;
+  });
+  document.getElementById('task-container').innerHTML = h;
+}
+function toggleTask(i,v){ S.tasks[i].done=v; save(); renderTasks(); }
+function removeTask(i)  { S.tasks.splice(i,1); save(); renderTasks(); }
+
+// ═══════════════════════════════════════════
+//  RENDER: BIG IDEAS
+// ═══════════════════════════════════════════
+function renderIdeas() {
+  if (!S.ideas.length) {
+    document.getElementById('ideas-container').innerHTML =
+      '<div class="empty-msg" style="padding:2px 0;">1.<br>2.<br>3.</div>';
+    return;
+  }
+  let h = '';
+  S.ideas.forEach((idea,i) => {
+    h += `<div class="idea-row">
+      <span class="idea-num">${i+1}.</span>
+      <input type="text" value="${esc(idea)}"
+             onchange="S.ideas[${i}]=this.value;save();">
+      <button class="del-btn" onclick="removeIdea(${i})">✕</button>
+    </div>`;
+  });
+  document.getElementById('ideas-container').innerHTML = h;
+}
+function removeIdea(i) { S.ideas.splice(i,1); save(); renderIdeas(); }
+
+// ═══════════════════════════════════════════
+//  RENDER: NOTES
+// ═══════════════════════════════════════════
+function renderNotes(filter) {
+  let notes = S.notes;
+  if (filter) {
+    const f = filter.toLowerCase();
+    notes = notes.filter(n =>
+      n.title.toLowerCase().includes(f) || n.content.toLowerCase().includes(f)
+    );
+  }
+  if (!notes.length) {
+    document.getElementById('notes-container').innerHTML =
+      '<div class="empty-msg">No notes yet.</div>';
+    return;
+  }
+  let h = '';
+  notes.forEach((n, idx) => {
+    const ri = S.notes.indexOf(n);
+    h += `<div class="note-item">
+      <div class="note-header">
+        <div class="note-title">${esc(n.title)}</div>
+        <button class="del-btn" onclick="removeNote(${ri})">✕</button>
+      </div>
+      <div class="note-body">${esc(n.content)}</div>
+    </div>
+    <div class="note-sep">- - - - - - - - -</div>`;
+  });
+  document.getElementById('notes-container').innerHTML = h;
+}
+function removeNote(i) { S.notes.splice(i,1); save(); renderNotes(); }
+function searchNotes(v) { renderNotes(v); }
+
+// ═══════════════════════════════════════════
+//  MODALS
+// ═══════════════════════════════════════════
+function openModal(id)  { document.getElementById(id).classList.add('open'); }
+function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+
+function addTask() {
+  const text = document.getElementById('new-task-text').value.trim();
+  const prio = document.getElementById('new-task-priority').value;
+  if (!text) return;
+  if (prio === 'top') {
+    const slot = S.top3.findIndex(t => !t.text);
+    if (slot >= 0) { S.top3[slot] = {text,done:false}; }
+    else { S.tasks.push({text,done:false}); } // overflow to list
+  } else {
+    S.tasks.push({text,done:false});
+  }
+  save(); renderTop3(); renderTasks();
+  document.getElementById('new-task-text').value = '';
+  closeModal('modal-task');
+}
+
+function addEvent() {
+  const text = document.getElementById('new-event-text').value.trim();
+  const date = document.getElementById('new-event-date').value;
+  const time = document.getElementById('new-event-time').value;
+  if (!text || !date) return;
+  const [y,m,d] = date.split('-').map(Number);
+  const key = `${y}-${m-1}-${d}`;
+  if (!S.events[key]) S.events[key] = [];
+  S.events[key].push({text,time});
+  save(); renderCalendar(); renderLR();
+  document.getElementById('new-event-text').value = '';
+  document.getElementById('new-event-date').value = '';
+  document.getElementById('new-event-time').value = '';
+  closeModal('modal-event');
+}
+
+function addNote() {
+  const title   = document.getElementById('new-note-title').value.trim();
+  const content = document.getElementById('new-note-content').value.trim();
+  if (!title) return;
+  S.notes.push({title,content});
+  save(); renderNotes();
+  document.getElementById('new-note-title').value   = '';
+  document.getElementById('new-note-content').value = '';
+  closeModal('modal-note');
+}
+
+function addIdea() {
+  const text = document.getElementById('new-idea-text').value.trim();
+  if (!text) return;
+  S.ideas.push(text);
+  save(); renderIdeas();
+  document.getElementById('new-idea-text').value = '';
+  closeModal('modal-idea');
+}
+
+// Close modal on backdrop click
+document.querySelectorAll('.modal').forEach(m => {
+  m.addEventListener('click', e => { if (e.target === m) m.classList.remove('open'); });
+});
+
+// ═══════════════════════════════════════════
+//  YEAR VIEW
+// ═══════════════════════════════════════════
+let viewYear = 2026;
+function prevYear() { viewYear--; renderYear(); document.getElementById('year-label').textContent=viewYear; }
+function nextYear() { viewYear++; renderYear(); document.getElementById('year-label').textContent=viewYear; }
+
+function renderYear() {
+  document.getElementById('year-label').textContent = viewYear;
+  let h = '';
+  for (let mo=0; mo<12; mo++) {
+    const dim   = new Date(viewYear, mo+1, 0).getDate();
+    const first = new Date(viewYear, mo, 1).getDay();
+
+    // Mini calendar
+    let cHtml = '<table class="mini-cal"><thead><tr>' +
+      DAY_HDRS.map(d=>`<th>${d[0]}</th>`).join('') + '</tr></thead><tbody>';
+    let day = 1;
+    for (let r=0; r<6; r++) {
+      cHtml += '<tr>';
+      for (let c=0; c<7; c++) {
+        if ((r===0&&c<first)||day>dim) { cHtml+='<td></td>'; }
+        else {
+          const evs = getEvents(viewYear,mo,day);
+          const isTdy = day===TODAY.getDate()&&mo===TODAY.getMonth()&&viewYear===TODAY.getFullYear();
+          let cls = isTdy?'mc-today':(evs.length?'mc-event':'');
+          cHtml += `<td class="${cls}">${day}</td>`;
+          day++;
+        }
+      }
+      cHtml += '</tr>';
+      if (day>dim) break;
+    }
+    cHtml += '</tbody></table>';
+
+    // Event list
+    let eHtml = '<div class="yr-events">';
+    let anyEvt = false;
+    for (let d=1; d<=dim; d++) {
+      const evs = getEvents(viewYear,mo,d);
+      if (evs.length) {
+        anyEvt = true;
+        eHtml += `<div class="yr-event-row">
+          <span class="yr-event-date">${d}${ordSuffix(d)}</span>
+          <span class="yr-event-text">${evs.map(e=>esc(e.text)).join(' / ')}</span>
+        </div>`;
+      }
+    }
+    if (!anyEvt) eHtml += '<div class="empty-msg">No events</div>';
+    eHtml += '</div>';
+
+    h += `<div class="month-card"><h4>${MONTHS[mo]} ${viewYear}</h4>${cHtml}${eHtml}</div>`;
+  }
+  document.getElementById('months-grid').innerHTML = h;
+}
+
+// ═══════════════════════════════════════════
+//  RENDER ALL (home page)
+// ═══════════════════════════════════════════
+function renderAll() {
+  renderCalendar();
+  renderLR();
+  renderSchedule();
+}
+
+// ═══════════════════════════════════════════
+//  INIT
+// ═══════════════════════════════════════════
+renderTop3();
+renderTasks();
+renderIdeas();
+renderNotes();
+renderCalendar();
+renderLR();
+renderSchedule();
+
+// Pre-fill event date to today
+document.getElementById('new-event-date').value = TODAY.toISOString().split('T')[0];
+</script>
+</body>
+</html>
