@@ -29,6 +29,14 @@
       font-size: 13px;
     }
     .nav button.active { background: white; color: #1e3a4a; font-weight: bold; }
+    .nav button.add-btn {
+      background: #2c5f7a;
+      border: 1px solid rgba(255,255,255,0.4);
+      padding: 3px 10px;
+      font-size: 12px;
+    }
+    .nav button.add-btn:hover { background: #1e4a5c; }
+    .nav-sep { width: 1px; height: 20px; background: rgba(255,255,255,0.25); margin: 0 2px; }
 
     /* ── PAGES ── */
     .page { display: none; }
@@ -398,6 +406,11 @@
   <strong>&#128203; Note &amp; Calendar</strong>
   <button class="active" onclick="showPage('home')">Home</button>
   <button onclick="showPage('year')">Year View (2026)</button>
+  <div class="nav-sep"></div>
+  <button class="add-btn" onclick="openModal('modal-task')">+ Task</button>
+  <button class="add-btn" onclick="openModal('modal-event')">+ Event</button>
+  <button class="add-btn" onclick="openModal('modal-note')">+ Note</button>
+  <button class="add-btn" onclick="openModal('modal-idea')">+ Idea</button>
   <span style="margin-left:auto;display:flex;align-items:center;gap:8px;">
     <span id="sync-status" style="font-size:11px;color:#aaa;">&#9675; Local Only</span>
     <button id="sync-btn" onclick="openModal('modal-sync')" style="font-size:11px;">&#8635; Drive</button>
@@ -422,13 +435,6 @@
       <div id="task-container"></div>
     </div>
 
-    <!-- Buttons -->
-    <div class="btn-grid">
-      <button class="btn-action" onclick="openModal('modal-event')">Add<br>Calendar Item</button>
-      <button class="btn-action" onclick="openModal('modal-task')">Add<br>Task</button>
-      <button class="btn-action" onclick="openModal('modal-idea')">Add<br>Big Idea</button>
-      <button class="btn-action" onclick="openModal('modal-note')">Add<br>Note</button>
-    </div>
   </div>
 
   <!-- CENTER: Notes -->
