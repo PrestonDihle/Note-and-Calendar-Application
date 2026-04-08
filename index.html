@@ -190,8 +190,25 @@
       align-items: flex-start;
     }
     .note-title { font-weight: bold; font-size: 13px; }
+    .note-title-input {
+      font-weight: bold; font-size: 13px;
+      border: none; border-bottom: 1px dotted #bbb;
+      outline: none; background: transparent;
+      flex: 1; min-width: 0; width: 100%;
+    }
     .note-body { font-size: 12px; color: #444; margin-top: 2px; white-space: pre-wrap; word-break: break-word; }
+    .note-body-input {
+      font-size: 12px; color: #444;
+      border: none; border-bottom: 1px dotted #eee;
+      outline: none; background: transparent;
+      width: 100%; resize: vertical; min-height: 32px;
+      font-family: Arial, sans-serif; padding: 2px 0;
+    }
     .note-sep { text-align: center; color: #999; font-size: 11px; letter-spacing: 2px; margin: 3px 0; }
+
+    /* ── GHOST ROWS ── */
+    .ghost-row input, .ghost-row textarea { color: #999; }
+    .ghost-row input:focus, .ghost-row textarea:focus { color: #333; }
 
     /* ── CALENDAR ── */
     .cal-nav {
@@ -989,11 +1006,6 @@ function clearTop3(i)   { S.top3[i]={text:'',done:false}; save(); renderTop3(); 
 //  RENDER: TASK LIST
 // ═══════════════════════════════════════════
 function renderTasks() {
-  if (!S.tasks.length) {
-    document.getElementById('task-container').innerHTML =
-      '<div class="empty-msg">No tasks yet. Add one below.</div>';
-    return;
-  }
   let h = '';
   S.tasks.forEach((t,i) => {
     h += `<div class="task-row ${t.done?'done':''}">
@@ -1004,20 +1016,22 @@ function renderTasks() {
       <button class="del-btn" onclick="removeTask(${i})">✕</button>
     </div>`;
   });
+  h += `<div class="task-row ghost-row">
+    <input type="checkbox" disabled style="opacity:0.25;cursor:default;">
+    <input class="task-input" type="text" placeholder="Add a task..."
+           onkeydown="if(event.key==='Enter'&&this.value.trim()){addTaskInline(this.value.trim());this.value='';event.preventDefault();}"
+           onblur="if(this.value.trim()){addTaskInline(this.value.trim());this.value='';}">
+  </div>`;
   document.getElementById('task-container').innerHTML = h;
 }
 function toggleTask(i,v){ S.tasks[i].done=v; save(); renderTasks(); }
 function removeTask(i)  { S.tasks.splice(i,1); save(); renderTasks(); }
+function addTaskInline(text) { S.tasks.push({text,done:false}); save(); renderTasks(); }
 
 // ═══════════════════════════════════════════
 //  RENDER: BIG IDEAS
 // ═══════════════════════════════════════════
 function renderIdeas() {
-  if (!S.ideas.length) {
-    document.getElementById('ideas-container').innerHTML =
-      '<div class="empty-msg" style="padding:2px 0;">1.<br>2.<br>3.</div>';
-    return;
-  }
   let h = '';
   S.ideas.forEach((idea,i) => {
     h += `<div class="idea-row">
@@ -1027,9 +1041,16 @@ function renderIdeas() {
       <button class="del-btn" onclick="removeIdea(${i})">✕</button>
     </div>`;
   });
+  h += `<div class="idea-row ghost-row">
+    <span class="idea-num">${S.ideas.length+1}.</span>
+    <input type="text" placeholder="Add an idea..."
+           onkeydown="if(event.key==='Enter'&&this.value.trim()){addIdeaInline(this.value.trim());this.value='';event.preventDefault();}"
+           onblur="if(this.value.trim()){addIdeaInline(this.value.trim());this.value='';}">
+  </div>`;
   document.getElementById('ideas-container').innerHTML = h;
 }
 function removeIdea(i) { S.ideas.splice(i,1); save(); renderIdeas(); }
+function addIdeaInline(text) { S.ideas.push(text); save(); renderIdeas(); }
 
 // ═══════════════════════════════════════════
 //  RENDER: NOTES
@@ -1048,21 +1069,46 @@ function renderNotes(filter) {
     return;
   }
   let h = '';
+  if (!notes.length && filter) {
+    h += '<div class="empty-msg">No notes match.</div>';
+  }
   notes.forEach((n, idx) => {
     const ri = S.notes.indexOf(n);
     h += `<div class="note-item">
       <div class="note-header">
-        <div class="note-title">${esc(n.title)}</div>
+        <input class="note-title-input" type="text" value="${esc(n.title)}"
+               onchange="S.notes[${ri}].title=this.value;save();">
         <button class="del-btn" onclick="removeNote(${ri})">✕</button>
       </div>
-      <div class="note-body">${esc(n.content)}</div>
+      <textarea class="note-body-input"
+                onchange="S.notes[${ri}].content=this.value;"
+                onblur="S.notes[${ri}].content=this.value;save();">${esc(n.content)}</textarea>
     </div>
     <div class="note-sep">- - - - - - - - -</div>`;
   });
+  if (!filter) {
+    h += `<div class="note-item ghost-row">
+      <input class="note-title-input" type="text" placeholder="New note title..."
+             id="ghost-note-title"
+             onkeydown="if(event.key==='Enter'){event.preventDefault();saveGhostNote();}">
+      <textarea class="note-body-input" placeholder="Content (optional)..."
+                id="ghost-note-content"
+                onblur="if(document.getElementById('ghost-note-title').value.trim())saveGhostNote();"></textarea>
+    </div>`;
+  }
   document.getElementById('notes-container').innerHTML = h;
 }
 function removeNote(i) { S.notes.splice(i,1); save(); renderNotes(); }
 function searchNotes(v) { renderNotes(v); }
+function saveGhostNote() {
+  const titleEl   = document.getElementById('ghost-note-title');
+  const contentEl = document.getElementById('ghost-note-content');
+  if (!titleEl) return;
+  const title = titleEl.value.trim();
+  if (!title) return;
+  S.notes.push({title, content: contentEl ? contentEl.value.trim() : ''});
+  save(); renderNotes();
+}
 
 // ═══════════════════════════════════════════
 //  MODALS
