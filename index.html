@@ -398,6 +398,10 @@
   <strong>&#128203; Note &amp; Calendar</strong>
   <button class="active" onclick="showPage('home')">Home</button>
   <button onclick="showPage('year')">Year View (2026)</button>
+  <span style="margin-left:auto;display:flex;align-items:center;gap:8px;">
+    <span id="sync-status" style="font-size:11px;color:#aaa;">&#9675; Local Only</span>
+    <button id="sync-btn" onclick="openModal('modal-sync')" style="font-size:11px;">&#8635; Drive</button>
+  </span>
 </div>
 
 <!-- ═══════════════════════════ HOME PAGE ═══════════════════════════ -->
@@ -557,6 +561,31 @@
   </div>
 </div>
 
+<!-- Google Drive Sync -->
+<div class="modal" id="modal-sync">
+  <div class="modal-box">
+    <h3>Google Drive Sync</h3>
+    <p style="font-size:12px;color:#555;margin-bottom:14px;">
+      Connect to a <code>nca_data.json</code> file inside your
+      <strong>Note-and-Calendar</strong> Google Drive folder.
+      All saves will write to that file automatically.
+      Google Drive syncs it across your devices.
+    </p>
+    <div style="display:flex;flex-direction:column;gap:8px;">
+      <button class="btn-save" onclick="connectExistingFile()" style="padding:10px;">
+        Open Existing nca_data.json
+      </button>
+      <button class="btn-save" onclick="createNewSyncFile()"
+              style="padding:10px;background:#3a7a5c;">
+        Create New Sync File
+      </button>
+      <button class="btn-cancel" onclick="closeModal('modal-sync')" style="padding:10px;">
+        Cancel
+      </button>
+    </div>
+  </div>
+</div>
+
 <script>
 // ═══════════════════════════════════════════
 //  PRE-LOADED 2026 CALENDAR EVENTS
@@ -674,7 +703,125 @@ const DEFAULT_STATE = {
 };
 
 let S = JSON.parse(localStorage.getItem('nca_v1') || 'null') || DEFAULT_STATE;
-function save() { localStorage.setItem('nca_v1', JSON.stringify(S)); }
+
+// ═══════════════════════════════════════════
+//  GOOGLE DRIVE FILE SYNC
+// ═══════════════════════════════════════════
+let fileHandle = null;
+
+async function _openDB() {
+  return new Promise((res, rej) => {
+    const r = indexedDB.open('nca_fs', 1);
+    r.onupgradeneeded = e => e.target.result.createObjectStore('handles');
+    r.onsuccess = e => res(e.target.result);
+    r.onerror = rej;
+  });
+}
+async function _saveHandle(h) {
+  const db = await _openDB();
+  const tx = db.transaction('handles', 'readwrite');
+  tx.objectStore('handles').put(h, 'data');
+}
+async function _loadHandle() {
+  const db = await _openDB();
+  return new Promise(res => {
+    const tx = db.transaction('handles', 'readonly');
+    const r  = tx.objectStore('handles').get('data');
+    r.onsuccess = e => res(e.target.result || null);
+    r.onerror   = () => res(null);
+  });
+}
+
+function setSyncStatus(status) {
+  const el = document.getElementById('sync-status');
+  if (!el) return;
+  const labels = { ok:'&#9679; Synced', saving:'&#9679; Saving…', error:'&#9679; Error', off:'&#9675; Local Only' };
+  const colors = { ok:'#8f8', saving:'#ff8', error:'#f88', off:'#aaa' };
+  el.innerHTML = labels[status] || status;
+  el.style.color = colors[status] || '#fff';
+}
+
+async function _writeToFile(data) {
+  if (!fileHandle) return;
+  try {
+    setSyncStatus('saving');
+    const w = await fileHandle.createWritable();
+    await w.write(JSON.stringify(data, null, 2));
+    await w.close();
+    setSyncStatus('ok');
+  } catch(e) {
+    console.error('Drive write error:', e);
+    setSyncStatus('error');
+  }
+}
+
+async function _readAndApply() {
+  const file = await fileHandle.getFile();
+  const data = JSON.parse(await file.text());
+  S = Object.assign({}, DEFAULT_STATE, data);
+  localStorage.setItem('nca_v1', JSON.stringify(S));
+  renderTop3(); renderTasks(); renderIdeas(); renderNotes(); renderAll();
+  setSyncStatus('ok');
+}
+
+async function connectExistingFile() {
+  closeModal('modal-sync');
+  try {
+    [fileHandle] = await window.showOpenFilePicker({
+      types: [{ description: 'JSON Data File', accept: { 'application/json': ['.json'] } }]
+    });
+    await _saveHandle(fileHandle);
+    await _readAndApply();
+  } catch(e) {
+    if (e.name !== 'AbortError') { setSyncStatus('error'); console.error(e); }
+  }
+}
+
+async function createNewSyncFile() {
+  closeModal('modal-sync');
+  try {
+    fileHandle = await window.showSaveFilePicker({
+      suggestedName: 'nca_data.json',
+      types: [{ description: 'JSON Data File', accept: { 'application/json': ['.json'] } }]
+    });
+    await _saveHandle(fileHandle);
+    await _writeToFile(S);
+  } catch(e) {
+    if (e.name !== 'AbortError') { setSyncStatus('error'); console.error(e); }
+  }
+}
+
+async function initFileSync() {
+  if (!window.showOpenFilePicker) {
+    document.getElementById('sync-btn').title = 'File sync requires Chrome or Edge';
+    return;
+  }
+  fileHandle = await _loadHandle();
+  if (!fileHandle) { setSyncStatus('off'); return; }
+  try {
+    const perm = await fileHandle.queryPermission({ mode: 'readwrite' });
+    if (perm === 'granted') {
+      await _readAndApply();
+    } else {
+      setSyncStatus('off');
+      const el = document.getElementById('sync-status');
+      el.title = 'Click to reconnect';
+      el.style.cursor = 'pointer';
+      el.onclick = async () => {
+        const p = await fileHandle.requestPermission({ mode: 'readwrite' });
+        if (p === 'granted') {
+          el.onclick = null; el.style.cursor = '';
+          await _readAndApply();
+        }
+      };
+    }
+  } catch(e) { fileHandle = null; setSyncStatus('off'); }
+}
+
+function save() {
+  localStorage.setItem('nca_v1', JSON.stringify(S));
+  _writeToFile(S);
+}
 
 // ═══════════════════════════════════════════
 //  HELPERS
@@ -1052,6 +1199,9 @@ renderSchedule();
 
 // Pre-fill event date to today
 document.getElementById('new-event-date').value = TODAY.toISOString().split('T')[0];
+
+// Initialize Google Drive file sync
+initFileSync();
 </script>
 </body>
 </html>
