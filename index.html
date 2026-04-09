@@ -412,6 +412,22 @@
     .yr-event-date { min-width: 30px; color: #888; font-size: 10px; flex-shrink: 0; }
     .yr-event-text { color: #1a5276; word-break: break-word; }
 
+    /* ── COLOR PICKER ── */
+    .color-pick {
+      -webkit-appearance: none;
+      border: 1px solid #ccc;
+      border-radius: 3px;
+      width: 22px;
+      height: 18px;
+      padding: 0;
+      cursor: pointer;
+      flex-shrink: 0;
+      background: none;
+      vertical-align: middle;
+    }
+    .color-pick::-webkit-color-swatch-wrapper { padding: 0; }
+    .color-pick::-webkit-color-swatch { border: none; border-radius: 2px; }
+
     /* ── UTILITY ── */
     .empty-msg { color: #bbb; font-size: 12px; font-style: italic; padding: 4px 0; }
   </style>
@@ -554,6 +570,8 @@
     <input type="date" id="new-event-enddate">
     <label>Time (optional)</label>
     <input type="time" id="new-event-time">
+    <label>Event Text Color</label>
+    <input type="color" id="new-event-color" value="#1a5276" style="width:50px;height:28px;margin-bottom:10px;cursor:pointer;">
     <label>Repeats</label>
     <select id="new-event-recur" onchange="toggleRecurUntil()">
       <option value="none">Does not repeat</option>
@@ -1045,7 +1063,7 @@ function renderSchedule() {
     h += `<div class="sched-row">
       <div class="sched-time">${tStr}</div>
       <div class="sched-content">
-        ${timed.map(e=>`<div class="sched-event-label">${esc(e.text)}</div>`).join('')}
+        ${timed.map(e=>`<div class="sched-event-label" style="color:${e.color||'#1a5276'}">${esc(e.text)}</div>`).join('')}
         <input type="text" value="${val}"
                onchange="saveSchedEntry('${key}',this.value)"
                placeholder="">
@@ -1067,7 +1085,7 @@ function renderLR() {
   for (let d=1; d<=dim; d++) {
     const dow = new Date(calYear, calMonth, d).getDay();
     const evs = getEvents(calYear, calMonth, d);
-    const evTxt = evs.map(e=>esc(e.text)).join(' / ');
+    const evTxt = evs.map(e=>`<span style="color:${e.color||'#1a5276'}">${esc(e.text)}</span>`).join(' / ');
     const isWknd = dow===0||dow===6;
     const isTdy  = d===TODAY.getDate() && calMonth===TODAY.getMonth() && calYear===TODAY.getFullYear();
     h += `<tr class="${isWknd?'weekend':''} ${isTdy?'lr-today':''}" onclick="selectDay(${d})">
@@ -1086,12 +1104,16 @@ function renderTop3() {
   let h = '';
   for (let i=0; i<3; i++) {
     const t = S.top3[i];
+    const c = t.color || '#333333';
     h += `<div class="top3-row ${t.done?'done':''}">
       <input type="checkbox" ${t.done?'checked':''} onchange="toggleTop3(${i},this.checked)">
       <span class="top3-num">${i+1}</span>
       <input class="task-input" type="text" value="${esc(t.text)}"
              onchange="S.top3[${i}].text=this.value;save();"
-             placeholder="Task ${i+1}...">
+             placeholder="Task ${i+1}..."
+             style="color:${c}">
+      <input type="color" class="color-pick" value="${c}"
+             title="Text color" onchange="S.top3[${i}].color=this.value;save();this.previousElementSibling.style.color=this.value;">
       <button class="del-btn" onclick="clearTop3(${i})">✕</button>
     </div>`;
   }
@@ -1106,11 +1128,14 @@ function clearTop3(i)   { S.top3[i]={text:'',done:false}; save(); renderTop3(); 
 function renderTasks() {
   let h = '';
   S.tasks.forEach((t,i) => {
+    const c = t.done ? '#aaa' : (t.color || '#333333');
     h += `<div class="task-row ${t.done?'done':''}">
       <input type="checkbox" ${t.done?'checked':''} onchange="toggleTask(${i},this.checked)">
       <input class="task-input" type="text" value="${esc(t.text)}"
              onchange="S.tasks[${i}].text=this.value;save();"
-             style="${t.done?'text-decoration:line-through;color:#aaa;':''}">
+             style="color:${c};${t.done?'text-decoration:line-through;':''}">
+      <input type="color" class="color-pick" value="${t.color||'#333333'}"
+             title="Text color" onchange="S.tasks[${i}].color=this.value;save();this.previousElementSibling.style.color=this.value;">
       <button class="del-btn" onclick="removeTask(${i})">✕</button>
     </div>`;
   });
@@ -1130,12 +1155,18 @@ function addTaskInline(text) { S.tasks.push({text,done:false}); save(); renderTa
 //  RENDER: BIG IDEAS
 // ═══════════════════════════════════════════
 function renderIdeas() {
+  // Migrate plain strings to objects
+  S.ideas = S.ideas.map(i => typeof i === 'string' ? {text:i, color:''} : i);
   let h = '';
   S.ideas.forEach((idea,i) => {
+    const c = idea.color || '#333333';
     h += `<div class="idea-row">
       <span class="idea-num">${i+1}.</span>
-      <input type="text" value="${esc(idea)}"
-             onchange="S.ideas[${i}]=this.value;save();">
+      <input type="text" value="${esc(idea.text)}"
+             onchange="S.ideas[${i}].text=this.value;save();"
+             style="color:${c}">
+      <input type="color" class="color-pick" value="${c}"
+             title="Text color" onchange="S.ideas[${i}].color=this.value;save();this.previousElementSibling.style.color=this.value;">
       <button class="del-btn" onclick="removeIdea(${i})">✕</button>
     </div>`;
   });
@@ -1148,7 +1179,7 @@ function renderIdeas() {
   document.getElementById('ideas-container').innerHTML = h;
 }
 function removeIdea(i) { S.ideas.splice(i,1); save(); renderIdeas(); }
-function addIdeaInline(text) { S.ideas.push(text); save(); renderIdeas(); }
+function addIdeaInline(text) { S.ideas.push({text, color:''}); save(); renderIdeas(); }
 
 // ═══════════════════════════════════════════
 //  RENDER: NOTES
@@ -1172,15 +1203,20 @@ function renderNotes(filter) {
   }
   notes.forEach((n, idx) => {
     const ri = S.notes.indexOf(n);
+    const c = n.color || '#333333';
     h += `<div class="note-item">
       <div class="note-header">
         <input class="note-title-input" type="text" value="${esc(n.title)}"
-               onchange="S.notes[${ri}].title=this.value;save();">
+               onchange="S.notes[${ri}].title=this.value;save();"
+               style="color:${c}">
+        <input type="color" class="color-pick" value="${c}"
+               title="Text color" onchange="S.notes[${ri}].color=this.value;save();this.previousElementSibling.style.color=this.value;this.parentElement.nextElementSibling.style.color=this.value;">
         <button class="del-btn" onclick="removeNote(${ri})">✕</button>
       </div>
       <textarea class="note-body-input"
                 onchange="S.notes[${ri}].content=this.value;"
-                onblur="S.notes[${ri}].content=this.value;save();">${esc(n.content)}</textarea>
+                onblur="S.notes[${ri}].content=this.value;save();"
+                style="color:${c}">${esc(n.content)}</textarea>
     </div>
     <div class="note-sep">- - - - - - - - -</div>`;
   });
@@ -1240,6 +1276,7 @@ function addEvent() {
   const startStr = document.getElementById('new-event-date').value;
   const endStr   = document.getElementById('new-event-enddate').value;
   const time     = document.getElementById('new-event-time').value;
+  const color    = document.getElementById('new-event-color').value;
   const recur    = document.getElementById('new-event-recur').value;
   const untilStr = document.getElementById('new-event-until').value;
   if (!text || !startStr) return;
@@ -1248,24 +1285,21 @@ function addEvent() {
   const start  = toDate(startStr);
 
   if (recur !== 'none') {
-    // Store as a recurring event — no per-day bloat
     if (!S.recurring) S.recurring = [];
     S.recurring.push({
-      text,
-      time,
+      text, time, color,
       start: `${start.getFullYear()}-${start.getMonth()}-${start.getDate()}`,
       recur,
       until: untilStr ? (() => { const d=toDate(untilStr); return `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`; })() : ''
     });
   } else {
-    // Single day or multi-day range
     const end = endStr ? toDate(endStr) : start;
     const cur = new Date(start);
     while (cur <= end) {
       const key = `${cur.getFullYear()}-${cur.getMonth()}-${cur.getDate()}`;
       if (!S.events[key]) S.events[key] = [];
       const isFirst = cur.getTime() === start.getTime();
-      S.events[key].push({text, time: isFirst ? time : ''});
+      S.events[key].push({text, time: isFirst ? time : '', color});
       cur.setDate(cur.getDate() + 1);
     }
   }
@@ -1275,6 +1309,7 @@ function addEvent() {
   document.getElementById('new-event-date').value    = '';
   document.getElementById('new-event-enddate').value = '';
   document.getElementById('new-event-time').value    = '';
+  document.getElementById('new-event-color').value   = '#1a5276';
   document.getElementById('new-event-recur').value   = 'none';
   document.getElementById('new-event-until').value   = '';
   document.getElementById('recur-until-wrap').style.display = 'none';
@@ -1295,7 +1330,7 @@ function addNote() {
 function addIdea() {
   const text = document.getElementById('new-idea-text').value.trim();
   if (!text) return;
-  S.ideas.push(text);
+  S.ideas.push({text, color: ''});
   save(); renderIdeas();
   document.getElementById('new-idea-text').value = '';
   closeModal('modal-idea');
