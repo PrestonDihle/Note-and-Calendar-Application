@@ -548,8 +548,10 @@
     <h3>Add Calendar Event</h3>
     <label>Event Name</label>
     <input type="text" id="new-event-text" placeholder="Event name">
-    <label>Date</label>
+    <label>Start Date</label>
     <input type="date" id="new-event-date">
+    <label>End Date (optional — leave blank for single day)</label>
+    <input type="date" id="new-event-enddate">
     <label>Time (optional)</label>
     <input type="time" id="new-event-time">
     <div class="modal-footer">
@@ -1191,18 +1193,33 @@ function addTask() {
 }
 
 function addEvent() {
-  const text = document.getElementById('new-event-text').value.trim();
-  const date = document.getElementById('new-event-date').value;
-  const time = document.getElementById('new-event-time').value;
-  if (!text || !date) return;
-  const [y,m,d] = date.split('-').map(Number);
-  const key = `${y}-${m-1}-${d}`;
-  if (!S.events[key]) S.events[key] = [];
-  S.events[key].push({text,time});
+  const text    = document.getElementById('new-event-text').value.trim();
+  const startStr= document.getElementById('new-event-date').value;
+  const endStr  = document.getElementById('new-event-enddate').value;
+  const time    = document.getElementById('new-event-time').value;
+  if (!text || !startStr) return;
+
+  // Build a UTC-noon Date to avoid timezone day-shift issues
+  const toDate = s => { const [y,m,d]=s.split('-').map(Number); return new Date(y,m-1,d); };
+  const start  = toDate(startStr);
+  const end    = endStr ? toDate(endStr) : start;
+
+  // Clamp so end is never before start
+  const cur = new Date(start);
+  while (cur <= end) {
+    const key = `${cur.getFullYear()}-${cur.getMonth()}-${cur.getDate()}`;
+    if (!S.events[key]) S.events[key] = [];
+    // Only store time on the first day; multi-day continuation gets no time
+    const isFirst = cur.getTime() === start.getTime();
+    S.events[key].push({text, time: isFirst ? time : ''});
+    cur.setDate(cur.getDate() + 1);
+  }
+
   save(); renderCalendar(); renderLR();
-  document.getElementById('new-event-text').value = '';
-  document.getElementById('new-event-date').value = '';
-  document.getElementById('new-event-time').value = '';
+  document.getElementById('new-event-text').value    = '';
+  document.getElementById('new-event-date').value    = '';
+  document.getElementById('new-event-enddate').value = '';
+  document.getElementById('new-event-time').value    = '';
   closeModal('modal-event');
 }
 
