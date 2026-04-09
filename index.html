@@ -1274,9 +1274,11 @@ function renderLR() {
     const dow = new Date(calYear, calMonth, d).getDay();
     const evs = getEvents(calYear, calMonth, d);
     const evTxt = evs.map(e=>`<span style="color:${e.color||'#1a5276'}">${esc(e.text)}</span>`).join(' / ');
-    const isWknd = dow===0||dow===6;
-    const isTdy  = d===TODAY.getDate() && calMonth===TODAY.getMonth() && calYear===TODAY.getFullYear();
-    h += `<tr class="${isWknd?'weekend':''} ${isTdy?'lr-today':''}" onclick="selectDay(${d})">
+    const isWknd  = dow===0||dow===6;
+    const isTdy   = d===TODAY.getDate() && calMonth===TODAY.getMonth() && calYear===TODAY.getFullYear();
+    const hlColor = (S.cellColors||{})[`${calYear}-${calMonth}-${d}`] || '';
+    const hlStyle = hlColor ? `style="background:${hlColor};"` : '';
+    h += `<tr class="${isWknd?'weekend':''} ${isTdy?'lr-today':''}" ${hlStyle} onclick="selectDay(${d})">
       <td class="lr-date">${d}${ordSuffix(d)}</td>
       <td class="lr-day">${DAY_LTR[dow]}</td>
       <td class="lr-evt">${evTxt}</td>
