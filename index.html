@@ -440,6 +440,21 @@
     .evt-swatch:hover { border-color: #555; }
     .evt-swatch.selected { border-color: #000; box-shadow: inset 0 0 0 2px #fff; }
 
+    /* ── CELL PALETTE POPUP ── */
+    #cell-palette-popup {
+      position: fixed; z-index: 500;
+      background: white; border: 1px solid #aaa;
+      border-radius: 6px; padding: 8px;
+      box-shadow: 0 3px 14px rgba(0,0,0,0.28);
+      display: none; min-width: 130px;
+    }
+    #cell-palette-popup.open { display: block; }
+    .cell-swatch {
+      width: 26px; height: 26px; border-radius: 4px;
+      border: 2px solid transparent; cursor: pointer;
+    }
+    .cell-swatch:hover { border-color: #222; }
+
     /* ── UTILITY ── */
     .empty-msg { color: #bbb; font-size: 12px; font-style: italic; padding: 4px 0; }
   </style>
@@ -687,6 +702,16 @@
 <!-- Shared palette popup -->
 <div id="palette-popup"></div>
 
+<!-- Cell highlight palette popup -->
+<div id="cell-palette-popup">
+  <div style="font-size:10px;color:#888;margin-bottom:4px;text-align:center;">Highlight Color</div>
+  <div id="cell-palette-swatches" style="display:grid;grid-template-columns:repeat(4,1fr);gap:4px;"></div>
+  <button id="cell-palette-clear" onclick="selectCellColor(null)"
+          style="margin-top:6px;width:100%;font-size:11px;padding:3px;border:1px solid #ccc;border-radius:3px;cursor:pointer;background:#f5f5f5;">
+    ✕ Clear highlight
+  </button>
+</div>
+
 <script>
 // ═══════════════════════════════════════════
 //  PRE-LOADED 2026 CALENDAR EVENTS
@@ -795,13 +820,14 @@ const PRELOADED = {
 //  APP STATE (persisted to localStorage)
 // ═══════════════════════════════════════════
 const DEFAULT_STATE = {
-  top3:      [{text:'',done:false},{text:'',done:false},{text:'',done:false}],
-  tasks:     [],
-  ideas:     [],
-  notes:     [],
-  events:    {},   // key "YYYY-M-D" → [{text,time}]
-  sched:     {},   // key "YYYY-M-D-H" → string
-  recurring: []    // [{text,time,start:"Y-M-D",recur:"daily|weekly|monthly|yearly",until:"Y-M-D"|""}]
+  top3:       [{text:'',done:false},{text:'',done:false},{text:'',done:false}],
+  tasks:      [],
+  ideas:      [],
+  notes:      [],
+  events:     {},   // key "YYYY-M-D" → [{text,time,color}]
+  sched:      {},   // key "YYYY-M-D-H" → string
+  recurring:  [],   // [{text,time,color,start,recur,until}]
+  cellColors: {}    // key "YYYY-M-D" → hex color string
 };
 
 let S = JSON.parse(localStorage.getItem('nca_v1') || 'null') || DEFAULT_STATE;
@@ -1020,6 +1046,47 @@ function setTaskColor(i, color) { S.tasks[i].color = color; save(); renderTasks(
 function setIdeaColor(i, color) { S.ideas[i].color = color; save(); renderIdeas(); }
 function setNoteColor(i, color) { S.notes[i].color = color; save(); renderNotes(); }
 
+// ── Cell highlight palette ──────────────────
+let _cellPaletteKey = null;
+(function() {
+  const wrap = document.getElementById('cell-palette-swatches');
+  PALETTE_COLORS.forEach(c => {
+    const s = document.createElement('div');
+    s.className = 'cell-swatch';
+    s.style.background = c;
+    s.title = c;
+    s.onclick = () => selectCellColor(c);
+    wrap.appendChild(s);
+  });
+})();
+
+function showCellPalette(e, y, m, d) {
+  e.preventDefault();
+  _cellPaletteKey = `${y}-${m}-${d}`;
+  const pop = document.getElementById('cell-palette-popup');
+  let left = e.clientX, top = e.clientY + 4;
+  if (left + 150 > window.innerWidth) left = window.innerWidth - 155;
+  if (top + 220 > window.innerHeight) top = e.clientY - 220;
+  pop.style.left = left + 'px';
+  pop.style.top  = top  + 'px';
+  pop.classList.add('open');
+  setTimeout(() => document.addEventListener('click', _closeCellPalette, {once:true}), 0);
+}
+
+function _closeCellPalette(e) {
+  if (!document.getElementById('cell-palette-popup').contains(e.target))
+    document.getElementById('cell-palette-popup').classList.remove('open');
+}
+
+function selectCellColor(color) {
+  document.getElementById('cell-palette-popup').classList.remove('open');
+  if (!_cellPaletteKey) return;
+  if (!S.cellColors) S.cellColors = {};
+  if (color) S.cellColors[_cellPaletteKey] = color;
+  else delete S.cellColors[_cellPaletteKey];
+  save(); renderCalendar();
+}
+
 // Generic modal swatch builder — built once per container, reset on open
 function initSwatches(containerId, hiddenInputId, colorRef) {
   const wrap = document.getElementById(containerId);
@@ -1149,7 +1216,9 @@ function renderCalendar() {
         if (day===TODAY.getDate() && calMonth===TODAY.getMonth() && calYear===TODAY.getFullYear()) cls+=' today';
         else if (selDate.y===calYear && selDate.m===calMonth && selDate.d===day) cls+=' selected';
         if (evs.length) cls+=' has-event';
-        h += `<td class="${cls.trim()}" onclick="selectDay(${day})">${day}</td>`;
+        const hlColor = (S.cellColors||{})[`${calYear}-${calMonth}-${day}`] || '';
+        const hlStyle = hlColor ? `background:${hlColor};` : '';
+        h += `<td class="${cls.trim()}" style="${hlStyle}" onclick="selectDay(${day})" oncontextmenu="showCellPalette(event,${calYear},${calMonth},${day})">${day}</td>`;
         day++;
       }
     }
@@ -1485,7 +1554,9 @@ function renderYear() {
           const evs = getEvents(viewYear,mo,day);
           const isTdy = day===TODAY.getDate()&&mo===TODAY.getMonth()&&viewYear===TODAY.getFullYear();
           let cls = isTdy?'mc-today':(evs.length?'mc-event':'');
-          cHtml += `<td class="${cls}">${day}</td>`;
+          const yrHl = (S.cellColors||{})[`${viewYear}-${mo}-${day}`] || '';
+          const yrSt = yrHl ? `background:${yrHl};` : '';
+          cHtml += `<td class="${cls}" style="${yrSt}">${day}</td>`;
           day++;
         }
       }
