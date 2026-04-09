@@ -99,6 +99,12 @@
       flex-shrink: 0;
     }
     .del-btn:hover { color: #e55; }
+    .edit-btn {
+      background: none; border: none; cursor: pointer;
+      color: #aaa; font-size: 11px; padding: 0 2px;
+      flex-shrink: 0;
+    }
+    .edit-btn:hover { color: #2c5f7a; }
 
     /* ── TASK LIST ── */
     .task-row {
@@ -567,10 +573,10 @@
 
 <!-- ═══════════════════════════ MODALS ═══════════════════════════ -->
 
-<!-- Add Task -->
+<!-- Add / Edit Task -->
 <div class="modal" id="modal-task">
   <div class="modal-box">
-    <h3>Add Task</h3>
+    <h3 id="modal-task-title">Add Task</h3>
     <label>Task Description</label>
     <input type="text" id="new-task-text" placeholder="What needs to be done?">
     <label>Type</label>
@@ -582,7 +588,7 @@
     <div id="task-color-swatches" style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:10px;"></div>
     <input type="hidden" id="new-task-color" value="">
     <div class="modal-footer">
-      <button class="btn-cancel" onclick="closeModal('modal-task')">Cancel</button>
+      <button class="btn-cancel" onclick="cancelTaskModal()">Cancel</button>
       <button class="btn-save" onclick="addTask()">Save</button>
     </div>
   </div>
@@ -624,19 +630,22 @@
   </div>
 </div>
 
-<!-- Add Note -->
+<!-- Add / Edit Note -->
 <div class="modal" id="modal-note">
   <div class="modal-box">
-    <h3>Add Note</h3>
+    <h3 id="modal-note-title">Add Note</h3>
     <label>Title</label>
     <input type="text" id="new-note-title" placeholder="Note title">
     <label>Content</label>
     <textarea id="new-note-content" placeholder="Write your note here..."></textarea>
-    <label>Text Color</label>
-    <div id="note-color-swatches" style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:10px;"></div>
-    <input type="hidden" id="new-note-color" value="">
+    <label>Title Color</label>
+    <div id="note-title-color-swatches" style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:10px;"></div>
+    <input type="hidden" id="new-note-title-color" value="">
+    <label>Body Color</label>
+    <div id="note-body-color-swatches" style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:10px;"></div>
+    <input type="hidden" id="new-note-body-color" value="">
     <div class="modal-footer">
-      <button class="btn-cancel" onclick="closeModal('modal-note')">Cancel</button>
+      <button class="btn-cancel" onclick="cancelNoteModal()">Cancel</button>
       <button class="btn-save" onclick="addNote()">Save</button>
     </div>
   </div>
@@ -1097,6 +1106,7 @@ function initSwatches(containerId, hiddenInputId, colorRef) {
     const s = document.createElement('div');
     s.className = 'evt-swatch' + (i === 0 ? ' selected' : '');
     s.style.background = c;
+    s.dataset.color = c;
     s.title = c;
     s.onclick = () => {
       wrap.querySelectorAll('.evt-swatch').forEach(el => el.classList.remove('selected'));
@@ -1115,15 +1125,31 @@ function resetSwatches(containerId, hiddenInputId, colorRef) {
   const wrap = document.getElementById(containerId);
   if (wrap) wrap.querySelectorAll('.evt-swatch').forEach((el, i) => el.classList.toggle('selected', i === 0));
 }
+function setSwatchByColor(containerId, hiddenInputId, colorRef, color) {
+  if (!color) return;
+  colorRef.v = color;
+  if (hiddenInputId) document.getElementById(hiddenInputId).value = color;
+  const wrap = document.getElementById(containerId);
+  if (!wrap) return;
+  wrap.querySelectorAll('.evt-swatch').forEach(el => {
+    el.classList.toggle('selected', el.dataset.color === color);
+  });
+}
 
 // Per-modal color refs (objects so initSwatches closure can mutate .v)
-const _evtColorRef  = { v: PALETTE_COLORS[0] };
-const _taskColorRef = { v: PALETTE_COLORS[0] };
-const _noteColorRef = { v: PALETTE_COLORS[0] };
-const _ideaColorRef = { v: PALETTE_COLORS[0] };
+const _evtColorRef       = { v: PALETTE_COLORS[0] };
+const _taskColorRef      = { v: PALETTE_COLORS[0] };
+const _noteTitleColorRef = { v: PALETTE_COLORS[0] };
+const _noteBodyColorRef  = { v: PALETTE_COLORS[0] };
+const _ideaColorRef      = { v: PALETTE_COLORS[0] };
 
 function initEventColorSwatches() { initSwatches('event-color-swatches', 'new-event-color', _evtColorRef); }
 function resetEventColor()        { resetSwatches('event-color-swatches', 'new-event-color', _evtColorRef); }
+
+// ── Edit state ──────────────────────────────
+let _editTask  = null; // { type:'top3'|'task', idx }
+let _editNote  = null; // index in S.notes
+let _editEvent = null; // { key, idx } for S.events entries
 
 // ═══════════════════════════════════════════
 //  HELPERS
@@ -1156,14 +1182,15 @@ function getRecurringEvents(year, month, day) {
       case 'monthly': matches = date.getDate() === start.getDate(); break;
       case 'yearly':  matches = date.getDate() === start.getDate() && date.getMonth() === start.getMonth(); break;
     }
-    if (matches) results.push({text: ev.text + ' ↻', location: ev.location||'', time: ev.time, color: ev.color||'', recurring: true});
+    if (matches) { const ri = S.recurring.indexOf(ev); results.push({text: ev.text + ' ↻', location: ev.location||'', time: ev.time, color: ev.color||'', recurring: true, _recurIdx: ri}); }
   }
   return results;
 }
 
 function getEvents(year, month, day) {
   const pre   = (PRELOADED[year]?.[month]?.[day] || []).map(t => ({text:t,time:'',pre:true}));
-  const user  = S.events[`${year}-${month}-${day}`] || [];
+  const key   = `${year}-${month}-${day}`;
+  const user  = (S.events[key] || []).map((e,i) => ({...e, _key:key, _idx:i}));
   const recur = getRecurringEvents(year, month, day);
   return [...pre, ...user, ...recur];
 }
@@ -1253,7 +1280,15 @@ function renderSchedule() {
     h += `<div class="sched-row">
       <div class="sched-time">${tStr}</div>
       <div class="sched-content">
-        ${timed.map(e=>`<div class="sched-event-label" style="color:${e.color||'#1a5276'}">${esc(e.text)}${e.location?`<div style="font-style:normal;color:#888;font-size:10px;">📍 ${esc(e.location)}</div>`:''}</div>`).join('')}
+        ${timed.map(e=>{
+          const editBtn = !e.pre && e._key !== undefined
+            ? `<button class="edit-btn" style="font-size:10px;" onclick="openEventEditModal('${e._key}',${e._idx})">✏</button>`
+            : '';
+          return `<div class="sched-event-label" style="color:${e.color||'#1a5276'};display:flex;align-items:flex-start;gap:2px;">
+            <div style="flex:1">${esc(e.text)}${e.location?`<div style="font-style:normal;color:#888;font-size:10px;">📍 ${esc(e.location)}</div>`:''}</div>
+            ${editBtn}
+          </div>`;
+        }).join('')}
         <input type="text" value="${val}"
                onchange="saveSchedEntry('${key}',this.value)"
                placeholder="">
@@ -1304,6 +1339,7 @@ function renderTop3() {
              onchange="S.top3[${i}].text=this.value;save();"
              placeholder="Task ${i+1}..."
              style="color:${c}">
+      <button class="edit-btn" onclick="openTaskModal({type:'top3',idx:${i}})">✏</button>
       <button class="del-btn" onclick="clearTop3(${i})">✕</button>
     </div>`;
   }
@@ -1324,6 +1360,7 @@ function renderTasks() {
       <input class="task-input" type="text" value="${esc(t.text)}"
              onchange="S.tasks[${i}].text=this.value;save();"
              style="color:${c};${t.done?'text-decoration:line-through;':''}">
+      <button class="edit-btn" onclick="openTaskModal({type:'task',idx:${i}})">✏</button>
       <button class="del-btn" onclick="removeTask(${i})">✕</button>
     </div>`;
   });
@@ -1389,18 +1426,22 @@ function renderNotes(filter) {
   }
   notes.forEach((n, idx) => {
     const ri = S.notes.indexOf(n);
-    const c = n.color || PALETTE_DEFAULT;
+    // migrate legacy single color field
+    if (n.color && !n.titleColor) { n.titleColor = n.color; n.bodyColor = n.color; }
+    const tc = n.titleColor || PALETTE_DEFAULT;
+    const bc = n.bodyColor  || PALETTE_DEFAULT;
     h += `<div class="note-item">
       <div class="note-header">
         <input class="note-title-input" type="text" value="${esc(n.title)}"
                onchange="S.notes[${ri}].title=this.value;save();"
-               style="color:${c}">
+               style="color:${tc}">
+        <button class="edit-btn" onclick="openNoteModal(${ri})">✏</button>
         <button class="del-btn" onclick="removeNote(${ri})">✕</button>
       </div>
       <textarea class="note-body-input"
                 onchange="S.notes[${ri}].content=this.value;"
                 onblur="S.notes[${ri}].content=this.value;save();"
-                style="color:${c}">${esc(n.content)}</textarea>
+                style="color:${bc}">${esc(n.content)}</textarea>
     </div>
     <div class="note-sep">- - - - - - - - -</div>`;
   });
@@ -1433,9 +1474,68 @@ function saveGhostNote() {
 // ═══════════════════════════════════════════
 function openModal(id)  { document.getElementById(id).classList.add('open'); }
 function closeModal(id) { document.getElementById(id).classList.remove('open'); }
-function openEventModal() { initEventColorSwatches(); resetEventColor(); openModal('modal-event'); }
-function openTaskModal()  { initSwatches('task-color-swatches','new-task-color',_taskColorRef); resetSwatches('task-color-swatches','new-task-color',_taskColorRef); openModal('modal-task'); }
-function openNoteModal()  { initSwatches('note-color-swatches','new-note-color',_noteColorRef); resetSwatches('note-color-swatches','new-note-color',_noteColorRef); openModal('modal-note'); }
+
+function openTaskModal(editInfo) {
+  _editTask = editInfo || null;
+  initSwatches('task-color-swatches','new-task-color',_taskColorRef);
+  document.getElementById('modal-task-title').textContent = editInfo ? 'Edit Task' : 'Add Task';
+  if (editInfo) {
+    const t = editInfo.type==='top3' ? S.top3[editInfo.idx] : S.tasks[editInfo.idx];
+    document.getElementById('new-task-text').value = t.text;
+    document.getElementById('new-task-priority').value = editInfo.type==='top3' ? 'top' : 'list';
+    if (t.color) setSwatchByColor('task-color-swatches','new-task-color',_taskColorRef,t.color);
+    else resetSwatches('task-color-swatches','new-task-color',_taskColorRef);
+  } else {
+    document.getElementById('new-task-text').value = '';
+    document.getElementById('new-task-priority').value = 'list';
+    resetSwatches('task-color-swatches','new-task-color',_taskColorRef);
+  }
+  openModal('modal-task');
+}
+function cancelTaskModal() { _editTask=null; closeModal('modal-task'); }
+
+function openNoteModal(editIdx) {
+  _editNote = (editIdx !== undefined) ? editIdx : null;
+  initSwatches('note-title-color-swatches','new-note-title-color',_noteTitleColorRef);
+  initSwatches('note-body-color-swatches','new-note-body-color',_noteBodyColorRef);
+  document.getElementById('modal-note-title').textContent = (_editNote!==null) ? 'Edit Note' : 'Add Note';
+  if (_editNote !== null) {
+    const n = S.notes[_editNote];
+    document.getElementById('new-note-title').value   = n.title;
+    document.getElementById('new-note-content').value = n.content;
+    const tc = n.titleColor || n.color || PALETTE_COLORS[0];
+    const bc = n.bodyColor  || n.color || PALETTE_COLORS[0];
+    setSwatchByColor('note-title-color-swatches','new-note-title-color',_noteTitleColorRef,tc);
+    setSwatchByColor('note-body-color-swatches','new-note-body-color',_noteBodyColorRef,bc);
+  } else {
+    document.getElementById('new-note-title').value   = '';
+    document.getElementById('new-note-content').value = '';
+    resetSwatches('note-title-color-swatches','new-note-title-color',_noteTitleColorRef);
+    resetSwatches('note-body-color-swatches','new-note-body-color',_noteBodyColorRef);
+  }
+  openModal('modal-note');
+}
+function cancelNoteModal() { _editNote=null; closeModal('modal-note'); }
+
+function openEventModal() { _editEvent=null; initEventColorSwatches(); resetEventColor(); openModal('modal-event'); }
+function openEventEditModal(key, idx) {
+  _editEvent = {key, idx};
+  const ev = S.events[key][idx];
+  initEventColorSwatches();
+  document.getElementById('new-event-text').value     = ev.text    || '';
+  document.getElementById('new-event-location').value = ev.location|| '';
+  document.getElementById('new-event-time').value     = ev.time    || '';
+  document.getElementById('new-event-recur').value    = 'none';
+  document.getElementById('new-event-enddate').value  = '';
+  document.getElementById('recur-until-wrap').style.display = 'none';
+  // pre-select date from key "Y-M-D"
+  const [ky,km,kd] = key.split('-').map(Number);
+  const dateStr = `${ky}-${String(km+1).padStart(2,'0')}-${String(kd).padStart(2,'0')}`;
+  document.getElementById('new-event-date').value = dateStr;
+  if (ev.color) setSwatchByColor('event-color-swatches','new-event-color',_evtColorRef,ev.color);
+  else resetEventColor();
+  openModal('modal-event');
+}
 function openIdeaModal()  { initSwatches('idea-color-swatches','new-idea-color',_ideaColorRef); resetSwatches('idea-color-swatches','new-idea-color',_ideaColorRef); openModal('modal-idea'); }
 
 function addTask() {
@@ -1443,12 +1543,23 @@ function addTask() {
   const prio  = document.getElementById('new-task-priority').value;
   const color = _taskColorRef.v || '';
   if (!text) return;
-  if (prio === 'top') {
-    const slot = S.top3.findIndex(t => !t.text);
-    if (slot >= 0) { S.top3[slot] = {text, done:false, color}; }
-    else { S.tasks.push({text, done:false, color}); }
+  if (_editTask) {
+    if (_editTask.type === 'top3') {
+      S.top3[_editTask.idx].text  = text;
+      S.top3[_editTask.idx].color = color;
+    } else {
+      S.tasks[_editTask.idx].text  = text;
+      S.tasks[_editTask.idx].color = color;
+    }
+    _editTask = null;
   } else {
-    S.tasks.push({text, done:false, color});
+    if (prio === 'top') {
+      const slot = S.top3.findIndex(t => !t.text);
+      if (slot >= 0) { S.top3[slot] = {text, done:false, color}; }
+      else { S.tasks.push({text, done:false, color}); }
+    } else {
+      S.tasks.push({text, done:false, color});
+    }
   }
   save(); renderTop3(); renderTasks();
   document.getElementById('new-task-text').value = '';
@@ -1474,7 +1585,16 @@ function addEvent() {
   const toDate = s => { const [y,m,d]=s.split('-').map(Number); return new Date(y,m-1,d); };
   const start  = toDate(startStr);
 
-  if (recur !== 'none') {
+  if (_editEvent) {
+    // Remove old entry, re-insert with updated data at (possibly new) date
+    const {key: oldKey, idx: oldIdx} = _editEvent;
+    S.events[oldKey].splice(oldIdx, 1);
+    if (!S.events[oldKey].length) delete S.events[oldKey];
+    _editEvent = null;
+    const newKey = `${start.getFullYear()}-${start.getMonth()}-${start.getDate()}`;
+    if (!S.events[newKey]) S.events[newKey] = [];
+    S.events[newKey].push({text, location, time, color});
+  } else if (recur !== 'none') {
     if (!S.recurring) S.recurring = [];
     S.recurring.push({
       text, location, time, color,
@@ -1494,7 +1614,7 @@ function addEvent() {
     }
   }
 
-  save(); renderCalendar(); renderLR();
+  save(); renderCalendar(); renderLR(); renderSchedule();
   document.getElementById('new-event-text').value     = '';
   document.getElementById('new-event-location').value = '';
   document.getElementById('new-event-date').value     = '';
@@ -1508,11 +1628,21 @@ function addEvent() {
 }
 
 function addNote() {
-  const title   = document.getElementById('new-note-title').value.trim();
-  const content = document.getElementById('new-note-content').value.trim();
-  const color   = _noteColorRef.v || '';
+  const title      = document.getElementById('new-note-title').value.trim();
+  const content    = document.getElementById('new-note-content').value.trim();
+  const titleColor = _noteTitleColorRef.v || '';
+  const bodyColor  = _noteBodyColorRef.v  || '';
   if (!title) return;
-  S.notes.push({title, content, color});
+  if (_editNote !== null) {
+    S.notes[_editNote].title      = title;
+    S.notes[_editNote].content    = content;
+    S.notes[_editNote].titleColor = titleColor;
+    S.notes[_editNote].bodyColor  = bodyColor;
+    delete S.notes[_editNote].color; // remove old single-color field
+    _editNote = null;
+  } else {
+    S.notes.push({title, content, titleColor, bodyColor});
+  }
   save(); renderNotes();
   document.getElementById('new-note-title').value   = '';
   document.getElementById('new-note-content').value = '';
