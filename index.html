@@ -550,10 +550,22 @@
     <input type="text" id="new-event-text" placeholder="Event name">
     <label>Start Date</label>
     <input type="date" id="new-event-date">
-    <label>End Date (optional — leave blank for single day)</label>
+    <label>End Date (optional — for multi-day events, leave blank if recurring)</label>
     <input type="date" id="new-event-enddate">
     <label>Time (optional)</label>
     <input type="time" id="new-event-time">
+    <label>Repeats</label>
+    <select id="new-event-recur" onchange="toggleRecurUntil()">
+      <option value="none">Does not repeat</option>
+      <option value="daily">Daily</option>
+      <option value="weekly">Weekly</option>
+      <option value="monthly">Monthly</option>
+      <option value="yearly">Yearly</option>
+    </select>
+    <div id="recur-until-wrap" style="display:none;">
+      <label>Repeat Until (optional)</label>
+      <input type="date" id="new-event-until">
+    </div>
     <div class="modal-footer">
       <button class="btn-cancel" onclick="closeModal('modal-event')">Cancel</button>
       <button class="btn-save" onclick="addEvent()">Save</button>
@@ -740,12 +752,13 @@ const PRELOADED = {
 //  APP STATE (persisted to localStorage)
 // ═══════════════════════════════════════════
 const DEFAULT_STATE = {
-  top3:   [{text:'',done:false},{text:'',done:false},{text:'',done:false}],
-  tasks:  [],
-  ideas:  [],
-  notes:  [],
-  events: {},   // key "YYYY-M-D" → [{text,time}]
-  sched:  {}    // key "YYYY-M-D-H" → string
+  top3:      [{text:'',done:false},{text:'',done:false},{text:'',done:false}],
+  tasks:     [],
+  ideas:     [],
+  notes:     [],
+  events:    {},   // key "YYYY-M-D" → [{text,time}]
+  sched:     {},   // key "YYYY-M-D-H" → string
+  recurring: []    // [{text,time,start:"Y-M-D",recur:"daily|weekly|monthly|yearly",until:"Y-M-D"|""}]
 };
 
 let S = JSON.parse(localStorage.getItem('nca_v1') || 'null') || DEFAULT_STATE;
@@ -918,10 +931,35 @@ const TODAY    = new Date();
 function ordSuffix(d) { return d===1?'st':d===2?'nd':d===3?'rd':'th'; }
 function esc(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
 
+function getRecurringEvents(year, month, day) {
+  if (!S.recurring || !S.recurring.length) return [];
+  const date  = new Date(year, month, day);
+  const results = [];
+  for (const ev of S.recurring) {
+    const [sy, sm, sd] = ev.start.split('-').map(Number);
+    const start = new Date(sy, sm, sd);
+    if (date < start) continue;
+    if (ev.until) {
+      const [uy, um, ud] = ev.until.split('-').map(Number);
+      if (date > new Date(uy, um, ud)) continue;
+    }
+    let matches = false;
+    switch (ev.recur) {
+      case 'daily':   matches = true; break;
+      case 'weekly':  matches = date.getDay() === start.getDay(); break;
+      case 'monthly': matches = date.getDate() === start.getDate(); break;
+      case 'yearly':  matches = date.getDate() === start.getDate() && date.getMonth() === start.getMonth(); break;
+    }
+    if (matches) results.push({text: ev.text + ' ↻', time: ev.time, recurring: true});
+  }
+  return results;
+}
+
 function getEvents(year, month, day) {
-  const pre  = (PRELOADED[year]?.[month]?.[day] || []).map(t => ({text:t,time:'',pre:true}));
-  const user = S.events[`${year}-${month}-${day}`] || [];
-  return [...pre, ...user];
+  const pre   = (PRELOADED[year]?.[month]?.[day] || []).map(t => ({text:t,time:'',pre:true}));
+  const user  = S.events[`${year}-${month}-${day}`] || [];
+  const recur = getRecurringEvents(year, month, day);
+  return [...pre, ...user, ...recur];
 }
 
 // ═══════════════════════════════════════════
@@ -1192,27 +1230,44 @@ function addTask() {
   closeModal('modal-task');
 }
 
+function toggleRecurUntil() {
+  const val = document.getElementById('new-event-recur').value;
+  document.getElementById('recur-until-wrap').style.display = val === 'none' ? 'none' : 'block';
+}
+
 function addEvent() {
-  const text    = document.getElementById('new-event-text').value.trim();
-  const startStr= document.getElementById('new-event-date').value;
-  const endStr  = document.getElementById('new-event-enddate').value;
-  const time    = document.getElementById('new-event-time').value;
+  const text     = document.getElementById('new-event-text').value.trim();
+  const startStr = document.getElementById('new-event-date').value;
+  const endStr   = document.getElementById('new-event-enddate').value;
+  const time     = document.getElementById('new-event-time').value;
+  const recur    = document.getElementById('new-event-recur').value;
+  const untilStr = document.getElementById('new-event-until').value;
   if (!text || !startStr) return;
 
-  // Build a UTC-noon Date to avoid timezone day-shift issues
   const toDate = s => { const [y,m,d]=s.split('-').map(Number); return new Date(y,m-1,d); };
   const start  = toDate(startStr);
-  const end    = endStr ? toDate(endStr) : start;
 
-  // Clamp so end is never before start
-  const cur = new Date(start);
-  while (cur <= end) {
-    const key = `${cur.getFullYear()}-${cur.getMonth()}-${cur.getDate()}`;
-    if (!S.events[key]) S.events[key] = [];
-    // Only store time on the first day; multi-day continuation gets no time
-    const isFirst = cur.getTime() === start.getTime();
-    S.events[key].push({text, time: isFirst ? time : ''});
-    cur.setDate(cur.getDate() + 1);
+  if (recur !== 'none') {
+    // Store as a recurring event — no per-day bloat
+    if (!S.recurring) S.recurring = [];
+    S.recurring.push({
+      text,
+      time,
+      start: `${start.getFullYear()}-${start.getMonth()}-${start.getDate()}`,
+      recur,
+      until: untilStr ? (() => { const d=toDate(untilStr); return `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`; })() : ''
+    });
+  } else {
+    // Single day or multi-day range
+    const end = endStr ? toDate(endStr) : start;
+    const cur = new Date(start);
+    while (cur <= end) {
+      const key = `${cur.getFullYear()}-${cur.getMonth()}-${cur.getDate()}`;
+      if (!S.events[key]) S.events[key] = [];
+      const isFirst = cur.getTime() === start.getTime();
+      S.events[key].push({text, time: isFirst ? time : ''});
+      cur.setDate(cur.getDate() + 1);
+    }
   }
 
   save(); renderCalendar(); renderLR();
@@ -1220,6 +1275,9 @@ function addEvent() {
   document.getElementById('new-event-date').value    = '';
   document.getElementById('new-event-enddate').value = '';
   document.getElementById('new-event-time').value    = '';
+  document.getElementById('new-event-recur').value   = 'none';
+  document.getElementById('new-event-until').value   = '';
+  document.getElementById('recur-until-wrap').style.display = 'none';
   closeModal('modal-event');
 }
 
