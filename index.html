@@ -1253,7 +1253,7 @@ function renderSchedule() {
     h += `<div class="sched-row">
       <div class="sched-time">${tStr}</div>
       <div class="sched-content">
-        ${timed.map(e=>`<div class="sched-event-label" style="color:${e.color||'#1a5276'}">${esc(e.text)}${e.location?` <span style="font-style:normal;color:#888;">📍${esc(e.location)}</span>`:''}</div>`).join('')}
+        ${timed.map(e=>`<div class="sched-event-label" style="color:${e.color||'#1a5276'}">${esc(e.text)}${e.location?`<div style="font-style:normal;color:#888;font-size:10px;">📍 ${esc(e.location)}</div>`:''}</div>`).join('')}
         <input type="text" value="${val}"
                onchange="saveSchedEntry('${key}',this.value)"
                placeholder="">
@@ -1275,7 +1275,7 @@ function renderLR() {
   for (let d=1; d<=dim; d++) {
     const dow = new Date(calYear, calMonth, d).getDay();
     const evs = getEvents(calYear, calMonth, d);
-    const evTxt = evs.map(e=>`<span style="color:${e.color||'#1a5276'}">${esc(e.text)}</span>`).join(' / ');
+    const evTxt = evs.map(e=>`<div><span style="color:${e.color||'#1a5276'}">${esc(e.text)}</span>${e.location?`<div style="color:#888;font-size:9px;">📍 ${esc(e.location)}</div>`:''}</div>`).join('');
     const isWknd  = dow===0||dow===6;
     const isTdy   = d===TODAY.getDate() && calMonth===TODAY.getMonth() && calYear===TODAY.getFullYear();
     const hlColor = (S.cellColors||{})[`${calYear}-${calMonth}-${d}`] || '';
