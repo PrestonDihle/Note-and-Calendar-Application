@@ -452,10 +452,10 @@
   <button class="active" onclick="showPage('home')">Home</button>
   <button onclick="showPage('year')">Year View (2026)</button>
   <div class="nav-sep"></div>
-  <button class="add-btn" onclick="openModal('modal-task')">+ Task</button>
+  <button class="add-btn" onclick="openTaskModal()">+ Task</button>
   <button class="add-btn" onclick="openEventModal()">+ Event</button>
-  <button class="add-btn" onclick="openModal('modal-note')">+ Note</button>
-  <button class="add-btn" onclick="openModal('modal-idea')">+ Idea</button>
+  <button class="add-btn" onclick="openNoteModal()">+ Note</button>
+  <button class="add-btn" onclick="openIdeaModal()">+ Idea</button>
   <span style="margin-left:auto;display:flex;align-items:center;gap:6px;">
     <button onclick="exportData()" style="font-size:11px;background:#3a7a5c;border:1px solid rgba(255,255,255,0.4);color:white;padding:3px 10px;border-radius:3px;cursor:pointer;" title="Copy all data to clipboard">&#128203; Export</button>
     <button onclick="openModal('modal-import')" style="font-size:11px;background:#7a5c3a;border:1px solid rgba(255,255,255,0.4);color:white;padding:3px 10px;border-radius:3px;cursor:pointer;" title="Paste data from clipboard">&#128228; Import</button>
@@ -563,6 +563,9 @@
       <option value="list">Task List</option>
       <option value="top">Top 3 Priority</option>
     </select>
+    <label>Text Color</label>
+    <div id="task-color-swatches" style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:10px;"></div>
+    <input type="hidden" id="new-task-color" value="">
     <div class="modal-footer">
       <button class="btn-cancel" onclick="closeModal('modal-task')">Cancel</button>
       <button class="btn-save" onclick="addTask()">Save</button>
@@ -612,6 +615,9 @@
     <input type="text" id="new-note-title" placeholder="Note title">
     <label>Content</label>
     <textarea id="new-note-content" placeholder="Write your note here..."></textarea>
+    <label>Text Color</label>
+    <div id="note-color-swatches" style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:10px;"></div>
+    <input type="hidden" id="new-note-color" value="">
     <div class="modal-footer">
       <button class="btn-cancel" onclick="closeModal('modal-note')">Cancel</button>
       <button class="btn-save" onclick="addNote()">Save</button>
@@ -625,6 +631,9 @@
     <h3>Add Big Idea</h3>
     <label>Your Idea</label>
     <input type="text" id="new-idea-text" placeholder="Enter your big idea...">
+    <label>Text Color</label>
+    <div id="idea-color-swatches" style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:10px;"></div>
+    <input type="hidden" id="new-idea-color" value="">
     <div class="modal-footer">
       <button class="btn-cancel" onclick="closeModal('modal-idea')">Cancel</button>
       <button class="btn-save" onclick="addIdea()">Save</button>
@@ -1011,11 +1020,10 @@ function setTaskColor(i, color) { S.tasks[i].color = color; save(); renderTasks(
 function setIdeaColor(i, color) { S.ideas[i].color = color; save(); renderIdeas(); }
 function setNoteColor(i, color) { S.notes[i].color = color; save(); renderNotes(); }
 
-// Event modal color swatches (built once, reset on each open)
-let _evtColor = PALETTE_DEFAULT;
-function initEventColorSwatches() {
-  const wrap = document.getElementById('event-color-swatches');
-  if (wrap.children.length) return; // already built
+// Generic modal swatch builder — built once per container, reset on open
+function initSwatches(containerId, hiddenInputId, colorRef) {
+  const wrap = document.getElementById(containerId);
+  if (!wrap || wrap.children.length) return;
   PALETTE_COLORS.forEach((c, i) => {
     const s = document.createElement('div');
     s.className = 'evt-swatch' + (i === 0 ? ' selected' : '');
@@ -1024,20 +1032,29 @@ function initEventColorSwatches() {
     s.onclick = () => {
       wrap.querySelectorAll('.evt-swatch').forEach(el => el.classList.remove('selected'));
       s.classList.add('selected');
-      _evtColor = c;
-      document.getElementById('new-event-color').value = c;
+      colorRef.v = c;
+      if (hiddenInputId) document.getElementById(hiddenInputId).value = c;
     };
     wrap.appendChild(s);
   });
-  _evtColor = PALETTE_COLORS[0];
-  document.getElementById('new-event-color').value = PALETTE_COLORS[0];
+  colorRef.v = PALETTE_COLORS[0];
+  if (hiddenInputId) document.getElementById(hiddenInputId).value = PALETTE_COLORS[0];
 }
-function resetEventColor() {
-  _evtColor = PALETTE_COLORS[0];
-  document.getElementById('new-event-color').value = PALETTE_COLORS[0];
-  const wrap = document.getElementById('event-color-swatches');
-  wrap.querySelectorAll('.evt-swatch').forEach((el, i) => el.classList.toggle('selected', i === 0));
+function resetSwatches(containerId, hiddenInputId, colorRef) {
+  colorRef.v = PALETTE_COLORS[0];
+  if (hiddenInputId) document.getElementById(hiddenInputId).value = PALETTE_COLORS[0];
+  const wrap = document.getElementById(containerId);
+  if (wrap) wrap.querySelectorAll('.evt-swatch').forEach((el, i) => el.classList.toggle('selected', i === 0));
 }
+
+// Per-modal color refs (objects so initSwatches closure can mutate .v)
+const _evtColorRef  = { v: PALETTE_COLORS[0] };
+const _taskColorRef = { v: PALETTE_COLORS[0] };
+const _noteColorRef = { v: PALETTE_COLORS[0] };
+const _ideaColorRef = { v: PALETTE_COLORS[0] };
+
+function initEventColorSwatches() { initSwatches('event-color-swatches', 'new-event-color', _evtColorRef); }
+function resetEventColor()        { resetSwatches('event-color-swatches', 'new-event-color', _evtColorRef); }
 
 // ═══════════════════════════════════════════
 //  HELPERS
@@ -1214,8 +1231,6 @@ function renderTop3() {
              onchange="S.top3[${i}].text=this.value;save();"
              placeholder="Task ${i+1}..."
              style="color:${c}">
-      <button class="palette-btn" style="background:${c}" title="Text color"
-              onclick="showPalette(this,'setTop3Color',${i})"></button>
       <button class="del-btn" onclick="clearTop3(${i})">✕</button>
     </div>`;
   }
@@ -1236,8 +1251,6 @@ function renderTasks() {
       <input class="task-input" type="text" value="${esc(t.text)}"
              onchange="S.tasks[${i}].text=this.value;save();"
              style="color:${c};${t.done?'text-decoration:line-through;':''}">
-      <button class="palette-btn" style="background:${t.color||PALETTE_DEFAULT}" title="Text color"
-              onclick="showPalette(this,'setTaskColor',${i})"></button>
       <button class="del-btn" onclick="removeTask(${i})">✕</button>
     </div>`;
   });
@@ -1267,8 +1280,6 @@ function renderIdeas() {
       <input type="text" value="${esc(idea.text)}"
              onchange="S.ideas[${i}].text=this.value;save();"
              style="color:${c}">
-      <button class="palette-btn" style="background:${idea.color||PALETTE_DEFAULT}" title="Text color"
-              onclick="showPalette(this,'setIdeaColor',${i})"></button>
       <button class="del-btn" onclick="removeIdea(${i})">✕</button>
     </div>`;
   });
@@ -1311,8 +1322,6 @@ function renderNotes(filter) {
         <input class="note-title-input" type="text" value="${esc(n.title)}"
                onchange="S.notes[${ri}].title=this.value;save();"
                style="color:${c}">
-        <button class="palette-btn" style="background:${n.color||PALETTE_DEFAULT}" title="Text color"
-                onclick="showPalette(this,'setNoteColor',${ri})"></button>
         <button class="del-btn" onclick="removeNote(${ri})">✕</button>
       </div>
       <textarea class="note-body-input"
@@ -1352,17 +1361,21 @@ function saveGhostNote() {
 function openModal(id)  { document.getElementById(id).classList.add('open'); }
 function closeModal(id) { document.getElementById(id).classList.remove('open'); }
 function openEventModal() { initEventColorSwatches(); resetEventColor(); openModal('modal-event'); }
+function openTaskModal()  { initSwatches('task-color-swatches','new-task-color',_taskColorRef); resetSwatches('task-color-swatches','new-task-color',_taskColorRef); openModal('modal-task'); }
+function openNoteModal()  { initSwatches('note-color-swatches','new-note-color',_noteColorRef); resetSwatches('note-color-swatches','new-note-color',_noteColorRef); openModal('modal-note'); }
+function openIdeaModal()  { initSwatches('idea-color-swatches','new-idea-color',_ideaColorRef); resetSwatches('idea-color-swatches','new-idea-color',_ideaColorRef); openModal('modal-idea'); }
 
 function addTask() {
-  const text = document.getElementById('new-task-text').value.trim();
-  const prio = document.getElementById('new-task-priority').value;
+  const text  = document.getElementById('new-task-text').value.trim();
+  const prio  = document.getElementById('new-task-priority').value;
+  const color = _taskColorRef.v || '';
   if (!text) return;
   if (prio === 'top') {
     const slot = S.top3.findIndex(t => !t.text);
-    if (slot >= 0) { S.top3[slot] = {text,done:false}; }
-    else { S.tasks.push({text,done:false}); } // overflow to list
+    if (slot >= 0) { S.top3[slot] = {text, done:false, color}; }
+    else { S.tasks.push({text, done:false, color}); }
   } else {
-    S.tasks.push({text,done:false});
+    S.tasks.push({text, done:false, color});
   }
   save(); renderTop3(); renderTasks();
   document.getElementById('new-task-text').value = '';
@@ -1422,8 +1435,9 @@ function addEvent() {
 function addNote() {
   const title   = document.getElementById('new-note-title').value.trim();
   const content = document.getElementById('new-note-content').value.trim();
+  const color   = _noteColorRef.v || '';
   if (!title) return;
-  S.notes.push({title,content});
+  S.notes.push({title, content, color});
   save(); renderNotes();
   document.getElementById('new-note-title').value   = '';
   document.getElementById('new-note-content').value = '';
@@ -1431,9 +1445,10 @@ function addNote() {
 }
 
 function addIdea() {
-  const text = document.getElementById('new-idea-text').value.trim();
+  const text  = document.getElementById('new-idea-text').value.trim();
+  const color = _ideaColorRef.v || '';
   if (!text) return;
-  S.ideas.push({text, color: ''});
+  S.ideas.push({text, color});
   save(); renderIdeas();
   document.getElementById('new-idea-text').value = '';
   closeModal('modal-idea');
