@@ -412,21 +412,33 @@
     .yr-event-date { min-width: 30px; color: #888; font-size: 10px; flex-shrink: 0; }
     .yr-event-text { color: #1a5276; word-break: break-word; }
 
-    /* ── COLOR PICKER ── */
-    .color-pick {
-      -webkit-appearance: none;
-      border: 1px solid #ccc;
-      border-radius: 3px;
-      width: 22px;
-      height: 18px;
-      padding: 0;
-      cursor: pointer;
-      flex-shrink: 0;
-      background: none;
-      vertical-align: middle;
+    /* ── COLOR PALETTE ── */
+    .palette-btn {
+      width: 22px; height: 18px;
+      border: 1px solid #999; border-radius: 3px;
+      cursor: pointer; flex-shrink: 0; padding: 0;
+      transition: transform 0.1s;
     }
-    .color-pick::-webkit-color-swatch-wrapper { padding: 0; }
-    .color-pick::-webkit-color-swatch { border: none; border-radius: 2px; }
+    .palette-btn:hover { border-color: #222; transform: scale(1.2); }
+    #palette-popup {
+      position: fixed; z-index: 500;
+      background: white; border: 1px solid #aaa;
+      border-radius: 6px; padding: 6px;
+      box-shadow: 0 3px 14px rgba(0,0,0,0.28);
+      grid-template-columns: repeat(4, 1fr); gap: 4px; display: none;
+    }
+    #palette-popup.open { display: grid; }
+    .pal-swatch {
+      width: 26px; height: 26px; border-radius: 4px;
+      border: 2px solid transparent; cursor: pointer;
+    }
+    .pal-swatch:hover { border-color: #222; }
+    .evt-swatch {
+      width: 22px; height: 22px; border-radius: 4px;
+      border: 2px solid transparent; cursor: pointer; display: inline-block;
+    }
+    .evt-swatch:hover { border-color: #555; }
+    .evt-swatch.selected { border-color: #000; box-shadow: inset 0 0 0 2px #fff; }
 
     /* ── UTILITY ── */
     .empty-msg { color: #bbb; font-size: 12px; font-style: italic; padding: 4px 0; }
@@ -441,7 +453,7 @@
   <button onclick="showPage('year')">Year View (2026)</button>
   <div class="nav-sep"></div>
   <button class="add-btn" onclick="openModal('modal-task')">+ Task</button>
-  <button class="add-btn" onclick="openModal('modal-event')">+ Event</button>
+  <button class="add-btn" onclick="openEventModal()">+ Event</button>
   <button class="add-btn" onclick="openModal('modal-note')">+ Note</button>
   <button class="add-btn" onclick="openModal('modal-idea')">+ Idea</button>
   <span style="margin-left:auto;display:flex;align-items:center;gap:6px;">
@@ -571,7 +583,8 @@
     <label>Time (optional)</label>
     <input type="time" id="new-event-time">
     <label>Event Text Color</label>
-    <input type="color" id="new-event-color" value="#1a5276" style="width:50px;height:28px;margin-bottom:10px;cursor:pointer;">
+    <div id="event-color-swatches" style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:10px;"></div>
+    <input type="hidden" id="new-event-color" value="#1B4F72">
     <label>Repeats</label>
     <select id="new-event-recur" onchange="toggleRecurUntil()">
       <option value="none">Does not repeat</option>
@@ -661,6 +674,9 @@
     </div>
   </div>
 </div>
+
+<!-- Shared palette popup -->
+<div id="palette-popup"></div>
 
 <script>
 // ═══════════════════════════════════════════
@@ -938,6 +954,92 @@ function importData() {
 }
 
 // ═══════════════════════════════════════════
+//  COLOR PALETTE
+// ═══════════════════════════════════════════
+const PALETTE_COLORS = [
+  '#1B4F72','#2E86C1','#85C1E9','#5B6A82',
+  '#1E6B4A','#52BE80','#A9DFBF','#2D6A4F',
+  '#D35400','#E67E22','#C0392B','#F39C12',
+  '#C4A97D','#8D6E4C','#7D3C98','#2C3E50'
+];
+const PALETTE_DEFAULT = '#2C3E50';
+
+// Build shared palette popup swatches once
+(function() {
+  const pop = document.getElementById('palette-popup');
+  PALETTE_COLORS.forEach(c => {
+    const s = document.createElement('div');
+    s.className = 'pal-swatch';
+    s.style.background = c;
+    s.title = c;
+    s.onclick = () => selectPaletteColor(c);
+    pop.appendChild(s);
+  });
+})();
+
+let _palFn  = null;
+let _palBtn = null;
+
+function showPalette(btn, fnName, idx) {
+  _palFn  = color => window[fnName](idx, color);
+  _palBtn = btn;
+  const pop  = document.getElementById('palette-popup');
+  const rect = btn.getBoundingClientRect();
+  // Keep popup on screen horizontally
+  const popW = 4 * 30;
+  let left = rect.left;
+  if (left + popW > window.innerWidth - 8) left = window.innerWidth - popW - 8;
+  pop.style.top  = (rect.bottom + 4) + 'px';
+  pop.style.left = left + 'px';
+  pop.classList.add('open');
+  setTimeout(() => document.addEventListener('click', _closePaletteOutside, {once: true}), 0);
+}
+
+function _closePaletteOutside(e) {
+  if (!document.getElementById('palette-popup').contains(e.target))
+    document.getElementById('palette-popup').classList.remove('open');
+}
+
+function selectPaletteColor(color) {
+  document.getElementById('palette-popup').classList.remove('open');
+  if (_palFn) { _palFn(color); _palFn = null; }
+}
+
+// Named setters — called from palette selections
+function setTop3Color(i, color) { S.top3[i].color = color; save(); renderTop3(); }
+function setTaskColor(i, color) { S.tasks[i].color = color; save(); renderTasks(); }
+function setIdeaColor(i, color) { S.ideas[i].color = color; save(); renderIdeas(); }
+function setNoteColor(i, color) { S.notes[i].color = color; save(); renderNotes(); }
+
+// Event modal color swatches (built once, reset on each open)
+let _evtColor = PALETTE_DEFAULT;
+function initEventColorSwatches() {
+  const wrap = document.getElementById('event-color-swatches');
+  if (wrap.children.length) return; // already built
+  PALETTE_COLORS.forEach((c, i) => {
+    const s = document.createElement('div');
+    s.className = 'evt-swatch' + (i === 0 ? ' selected' : '');
+    s.style.background = c;
+    s.title = c;
+    s.onclick = () => {
+      wrap.querySelectorAll('.evt-swatch').forEach(el => el.classList.remove('selected'));
+      s.classList.add('selected');
+      _evtColor = c;
+      document.getElementById('new-event-color').value = c;
+    };
+    wrap.appendChild(s);
+  });
+  _evtColor = PALETTE_COLORS[0];
+  document.getElementById('new-event-color').value = PALETTE_COLORS[0];
+}
+function resetEventColor() {
+  _evtColor = PALETTE_COLORS[0];
+  document.getElementById('new-event-color').value = PALETTE_COLORS[0];
+  const wrap = document.getElementById('event-color-swatches');
+  wrap.querySelectorAll('.evt-swatch').forEach((el, i) => el.classList.toggle('selected', i === 0));
+}
+
+// ═══════════════════════════════════════════
 //  HELPERS
 // ═══════════════════════════════════════════
 const MONTHS = ['January','February','March','April','May','June',
@@ -1104,7 +1206,7 @@ function renderTop3() {
   let h = '';
   for (let i=0; i<3; i++) {
     const t = S.top3[i];
-    const c = t.color || '#333333';
+    const c = t.color || PALETTE_DEFAULT;
     h += `<div class="top3-row ${t.done?'done':''}">
       <input type="checkbox" ${t.done?'checked':''} onchange="toggleTop3(${i},this.checked)">
       <span class="top3-num">${i+1}</span>
@@ -1112,8 +1214,8 @@ function renderTop3() {
              onchange="S.top3[${i}].text=this.value;save();"
              placeholder="Task ${i+1}..."
              style="color:${c}">
-      <input type="color" class="color-pick" value="${c}"
-             title="Text color" onchange="S.top3[${i}].color=this.value;save();this.previousElementSibling.style.color=this.value;">
+      <button class="palette-btn" style="background:${c}" title="Text color"
+              onclick="showPalette(this,'setTop3Color',${i})"></button>
       <button class="del-btn" onclick="clearTop3(${i})">✕</button>
     </div>`;
   }
@@ -1128,14 +1230,14 @@ function clearTop3(i)   { S.top3[i]={text:'',done:false}; save(); renderTop3(); 
 function renderTasks() {
   let h = '';
   S.tasks.forEach((t,i) => {
-    const c = t.done ? '#aaa' : (t.color || '#333333');
+    const c = t.done ? '#aaa' : (t.color || PALETTE_DEFAULT);
     h += `<div class="task-row ${t.done?'done':''}">
       <input type="checkbox" ${t.done?'checked':''} onchange="toggleTask(${i},this.checked)">
       <input class="task-input" type="text" value="${esc(t.text)}"
              onchange="S.tasks[${i}].text=this.value;save();"
              style="color:${c};${t.done?'text-decoration:line-through;':''}">
-      <input type="color" class="color-pick" value="${t.color||'#333333'}"
-             title="Text color" onchange="S.tasks[${i}].color=this.value;save();this.previousElementSibling.style.color=this.value;">
+      <button class="palette-btn" style="background:${t.color||PALETTE_DEFAULT}" title="Text color"
+              onclick="showPalette(this,'setTaskColor',${i})"></button>
       <button class="del-btn" onclick="removeTask(${i})">✕</button>
     </div>`;
   });
@@ -1159,14 +1261,14 @@ function renderIdeas() {
   S.ideas = S.ideas.map(i => typeof i === 'string' ? {text:i, color:''} : i);
   let h = '';
   S.ideas.forEach((idea,i) => {
-    const c = idea.color || '#333333';
+    const c = idea.color || PALETTE_DEFAULT;
     h += `<div class="idea-row">
       <span class="idea-num">${i+1}.</span>
       <input type="text" value="${esc(idea.text)}"
              onchange="S.ideas[${i}].text=this.value;save();"
              style="color:${c}">
-      <input type="color" class="color-pick" value="${c}"
-             title="Text color" onchange="S.ideas[${i}].color=this.value;save();this.previousElementSibling.style.color=this.value;">
+      <button class="palette-btn" style="background:${idea.color||PALETTE_DEFAULT}" title="Text color"
+              onclick="showPalette(this,'setIdeaColor',${i})"></button>
       <button class="del-btn" onclick="removeIdea(${i})">✕</button>
     </div>`;
   });
@@ -1203,14 +1305,14 @@ function renderNotes(filter) {
   }
   notes.forEach((n, idx) => {
     const ri = S.notes.indexOf(n);
-    const c = n.color || '#333333';
+    const c = n.color || PALETTE_DEFAULT;
     h += `<div class="note-item">
       <div class="note-header">
         <input class="note-title-input" type="text" value="${esc(n.title)}"
                onchange="S.notes[${ri}].title=this.value;save();"
                style="color:${c}">
-        <input type="color" class="color-pick" value="${c}"
-               title="Text color" onchange="S.notes[${ri}].color=this.value;save();this.previousElementSibling.style.color=this.value;this.parentElement.nextElementSibling.style.color=this.value;">
+        <button class="palette-btn" style="background:${n.color||PALETTE_DEFAULT}" title="Text color"
+                onclick="showPalette(this,'setNoteColor',${ri})"></button>
         <button class="del-btn" onclick="removeNote(${ri})">✕</button>
       </div>
       <textarea class="note-body-input"
@@ -1249,6 +1351,7 @@ function saveGhostNote() {
 // ═══════════════════════════════════════════
 function openModal(id)  { document.getElementById(id).classList.add('open'); }
 function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+function openEventModal() { initEventColorSwatches(); resetEventColor(); openModal('modal-event'); }
 
 function addTask() {
   const text = document.getElementById('new-task-text').value.trim();
@@ -1309,10 +1412,10 @@ function addEvent() {
   document.getElementById('new-event-date').value    = '';
   document.getElementById('new-event-enddate').value = '';
   document.getElementById('new-event-time').value    = '';
-  document.getElementById('new-event-color').value   = '#1a5276';
   document.getElementById('new-event-recur').value   = 'none';
   document.getElementById('new-event-until').value   = '';
   document.getElementById('recur-until-wrap').style.display = 'none';
+  resetEventColor();
   closeModal('modal-event');
 }
 
