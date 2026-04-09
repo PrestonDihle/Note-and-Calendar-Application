@@ -428,7 +428,10 @@
   <button class="add-btn" onclick="openModal('modal-event')">+ Event</button>
   <button class="add-btn" onclick="openModal('modal-note')">+ Note</button>
   <button class="add-btn" onclick="openModal('modal-idea')">+ Idea</button>
-  <span style="margin-left:auto;display:flex;align-items:center;gap:8px;">
+  <span style="margin-left:auto;display:flex;align-items:center;gap:6px;">
+    <button onclick="exportData()" style="font-size:11px;background:#3a7a5c;border:1px solid rgba(255,255,255,0.4);color:white;padding:3px 10px;border-radius:3px;cursor:pointer;" title="Copy all data to clipboard">&#128203; Export</button>
+    <button onclick="openModal('modal-import')" style="font-size:11px;background:#7a5c3a;border:1px solid rgba(255,255,255,0.4);color:white;padding:3px 10px;border-radius:3px;cursor:pointer;" title="Paste data from clipboard">&#128228; Import</button>
+    <div class="nav-sep"></div>
     <span id="sync-status" style="font-size:11px;color:#aaa;">&#9675; Local Only</span>
     <button id="sync-btn" onclick="openModal('modal-sync')" style="font-size:11px;">&#8635; Drive</button>
   </span>
@@ -605,6 +608,24 @@
       <button class="btn-cancel" onclick="closeModal('modal-sync')" style="padding:10px;">
         Cancel
       </button>
+    </div>
+  </div>
+</div>
+
+<!-- Import Data -->
+<div class="modal" id="modal-import">
+  <div class="modal-box">
+    <h3>&#128228; Import Data</h3>
+    <p style="font-size:12px;color:#555;margin-bottom:10px;">
+      Paste your previously exported data below, then click <strong>Import</strong>.<br>
+      <span style="color:#c0392b;">This will overwrite your current data.</span>
+    </p>
+    <label>Paste JSON here</label>
+    <textarea id="import-json" style="height:120px;font-size:11px;font-family:monospace;" placeholder='{"top3":[...],"tasks":[...],...}'></textarea>
+    <div id="import-error" style="color:#c0392b;font-size:11px;margin-top:-6px;margin-bottom:6px;display:none;"></div>
+    <div class="modal-footer">
+      <button class="btn-cancel" onclick="closeModal('modal-import');document.getElementById('import-json').value='';document.getElementById('import-error').style.display='none';">Cancel</button>
+      <button class="btn-save" onclick="importData()">Import</button>
     </div>
   </div>
 </div>
@@ -844,6 +865,43 @@ async function initFileSync() {
 function save() {
   localStorage.setItem('nca_v1', JSON.stringify(S));
   _writeToFile(S);
+}
+
+// ═══════════════════════════════════════════
+//  EXPORT / IMPORT (clipboard)
+// ═══════════════════════════════════════════
+function exportData() {
+  const json = JSON.stringify(S, null, 2);
+  navigator.clipboard.writeText(json).then(() => {
+    const btn = document.querySelector('[onclick="exportData()"]');
+    const orig = btn.innerHTML;
+    btn.innerHTML = '&#10003; Copied!';
+    btn.style.background = '#2e8b57';
+    setTimeout(() => { btn.innerHTML = orig; btn.style.background = '#3a7a5c'; }, 2000);
+  }).catch(() => {
+    // Fallback: show in a prompt so user can copy manually
+    prompt('Copy this data:', JSON.stringify(S));
+  });
+}
+
+function importData() {
+  const raw = document.getElementById('import-json').value.trim();
+  const errEl = document.getElementById('import-error');
+  errEl.style.display = 'none';
+  if (!raw) { errEl.textContent = 'Please paste your exported data first.'; errEl.style.display='block'; return; }
+  try {
+    const parsed = JSON.parse(raw);
+    // Basic validation — must have at least one known key
+    if (!parsed.top3 && !parsed.tasks && !parsed.notes) throw new Error('Unrecognised format');
+    S = Object.assign({}, DEFAULT_STATE, parsed);
+    save();
+    renderTop3(); renderTasks(); renderIdeas(); renderNotes(); renderAll();
+    closeModal('modal-import');
+    document.getElementById('import-json').value = '';
+  } catch(e) {
+    errEl.textContent = 'Invalid data — make sure you paste the full exported text.';
+    errEl.style.display = 'block';
+  }
 }
 
 // ═══════════════════════════════════════════
