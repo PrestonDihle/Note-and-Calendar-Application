@@ -594,6 +594,8 @@
     <h3>Add Calendar Event</h3>
     <label>Event Name</label>
     <input type="text" id="new-event-text" placeholder="Event name">
+    <label>Location (optional)</label>
+    <input type="text" id="new-event-location" placeholder="e.g. Conference Room B, Zoom, etc.">
     <label>Start Date</label>
     <input type="date" id="new-event-date">
     <label>End Date (optional — for multi-day events, leave blank if recurring)</label>
@@ -1154,7 +1156,7 @@ function getRecurringEvents(year, month, day) {
       case 'monthly': matches = date.getDate() === start.getDate(); break;
       case 'yearly':  matches = date.getDate() === start.getDate() && date.getMonth() === start.getMonth(); break;
     }
-    if (matches) results.push({text: ev.text + ' ↻', time: ev.time, recurring: true});
+    if (matches) results.push({text: ev.text + ' ↻', location: ev.location||'', time: ev.time, color: ev.color||'', recurring: true});
   }
   return results;
 }
@@ -1251,7 +1253,7 @@ function renderSchedule() {
     h += `<div class="sched-row">
       <div class="sched-time">${tStr}</div>
       <div class="sched-content">
-        ${timed.map(e=>`<div class="sched-event-label" style="color:${e.color||'#1a5276'}">${esc(e.text)}</div>`).join('')}
+        ${timed.map(e=>`<div class="sched-event-label" style="color:${e.color||'#1a5276'}">${esc(e.text)}${e.location?` <span style="font-style:normal;color:#888;">📍${esc(e.location)}</span>`:''}</div>`).join('')}
         <input type="text" value="${val}"
                onchange="saveSchedEntry('${key}',this.value)"
                placeholder="">
@@ -1460,6 +1462,7 @@ function toggleRecurUntil() {
 
 function addEvent() {
   const text     = document.getElementById('new-event-text').value.trim();
+  const location = document.getElementById('new-event-location').value.trim();
   const startStr = document.getElementById('new-event-date').value;
   const endStr   = document.getElementById('new-event-enddate').value;
   const time     = document.getElementById('new-event-time').value;
@@ -1474,7 +1477,7 @@ function addEvent() {
   if (recur !== 'none') {
     if (!S.recurring) S.recurring = [];
     S.recurring.push({
-      text, time, color,
+      text, location, time, color,
       start: `${start.getFullYear()}-${start.getMonth()}-${start.getDate()}`,
       recur,
       until: untilStr ? (() => { const d=toDate(untilStr); return `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`; })() : ''
@@ -1486,18 +1489,19 @@ function addEvent() {
       const key = `${cur.getFullYear()}-${cur.getMonth()}-${cur.getDate()}`;
       if (!S.events[key]) S.events[key] = [];
       const isFirst = cur.getTime() === start.getTime();
-      S.events[key].push({text, time: isFirst ? time : '', color});
+      S.events[key].push({text, location, time: isFirst ? time : '', color});
       cur.setDate(cur.getDate() + 1);
     }
   }
 
   save(); renderCalendar(); renderLR();
-  document.getElementById('new-event-text').value    = '';
-  document.getElementById('new-event-date').value    = '';
-  document.getElementById('new-event-enddate').value = '';
-  document.getElementById('new-event-time').value    = '';
-  document.getElementById('new-event-recur').value   = 'none';
-  document.getElementById('new-event-until').value   = '';
+  document.getElementById('new-event-text').value     = '';
+  document.getElementById('new-event-location').value = '';
+  document.getElementById('new-event-date').value     = '';
+  document.getElementById('new-event-enddate').value  = '';
+  document.getElementById('new-event-time').value     = '';
+  document.getElementById('new-event-recur').value    = 'none';
+  document.getElementById('new-event-until').value    = '';
   document.getElementById('recur-until-wrap').style.display = 'none';
   resetEventColor();
   closeModal('modal-event');
