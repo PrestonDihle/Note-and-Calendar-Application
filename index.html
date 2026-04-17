@@ -6,11 +6,11 @@
   <title>Note & Calendar App</title>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
-    body { font-family: Arial, sans-serif; background: #e8e8e8; height: 100vh; overflow: hidden; }
+    body { font-family: Arial, sans-serif; background: #F2F2F2; height: 100vh; overflow: hidden; }
 
     /* ── NAV ── */
     .nav {
-      background: #1e3a4a;
+      background: #020659;
       color: white;
       padding: 6px 14px;
       display: flex;
@@ -28,14 +28,14 @@
       border-radius: 3px;
       font-size: 13px;
     }
-    .nav button.active { background: white; color: #1e3a4a; font-weight: bold; }
+    .nav button.active { background: white; color: #020659; font-weight: bold; }
     .nav button.add-btn {
-      background: #2c5f7a;
+      background: #0511F2;
       border: 1px solid rgba(255,255,255,0.4);
       padding: 3px 10px;
       font-size: 12px;
     }
-    .nav button.add-btn:hover { background: #1e4a5c; }
+    .nav button.add-btn:hover { background: #1A3073; }
     .nav-sep { width: 1px; height: 20px; background: rgba(255,255,255,0.25); margin: 0 2px; }
 
     /* ── PAGES ── */
@@ -104,7 +104,7 @@
       color: #aaa; font-size: 11px; padding: 0 2px;
       flex-shrink: 0;
     }
-    .edit-btn:hover { color: #2c5f7a; }
+    .edit-btn:hover { color: #0511F2; }
 
     /* ── TASK LIST ── */
     .task-row {
@@ -134,7 +134,7 @@
       padding: 4px 0;
     }
     .btn-action {
-      background: #2c5f7a;
+      background: #0511F2;
       color: white;
       border: none;
       padding: 10px 6px;
@@ -145,7 +145,7 @@
       text-align: center;
       line-height: 1.3;
     }
-    .btn-action:hover { background: #1e4a5c; }
+    .btn-action:hover { background: #1A3073; }
 
     /* ── SEARCH ── */
     .search-bar {
@@ -224,7 +224,7 @@
       margin-bottom: 5px;
     }
     .cal-nav button {
-      background: #2c5f7a;
+      background: #0511F2;
       color: white;
       border: none;
       padding: 2px 10px;
@@ -235,7 +235,7 @@
     .cal-nav span { font-weight: bold; font-size: 15px; }
     .cal-table { width: 100%; border-collapse: collapse; }
     .cal-table th {
-      background: #2c5f7a;
+      background: #020659;
       color: white;
       text-align: center;
       font-size: 12px;
@@ -249,10 +249,10 @@
       cursor: pointer;
       position: relative;
     }
-    .cal-table td:hover:not(.empty) { background: #dce8f0; }
-    .cal-table td.today { background: #2c5f7a; color: white; border-radius: 50%; font-weight: bold; }
-    .cal-table td.selected { background: #a8ccde; border-radius: 50%; }
-    .cal-table td.has-event { font-weight: bold; color: #1a5276; }
+    .cal-table td:hover:not(.empty) { background: #e0e2fd; }
+    .cal-table td.today { background: #0511F2; color: white; border-radius: 50%; font-weight: bold; }
+    .cal-table td.selected { background: #c5c8fa; border-radius: 50%; }
+    .cal-table td.has-event { font-weight: bold; color: #1A3073; }
     .cal-table td.has-event::after {
       content: '●';
       font-size: 6px;
@@ -289,7 +289,7 @@
     }
     .sched-event-label {
       font-size: 10px;
-      color: #1a5276;
+      color: #1A3073;
       font-style: italic;
     }
     .sched-content input {
@@ -303,13 +303,13 @@
     /* ── LONG RANGE ── */
     .lr-table { width: 100%; border-collapse: collapse; font-size: 11px; }
     .lr-table tr { border-bottom: 1px solid #f0f0f0; cursor: pointer; }
-    .lr-table tr:hover { background: #f0f5f8; }
+    .lr-table tr:hover { background: #F2F2F2; }
     .lr-table td { padding: 2px 3px; vertical-align: top; }
     .lr-date { min-width: 30px; color: #555; white-space: nowrap; }
     .lr-day  { min-width: 16px; color: #888; }
-    .lr-evt  { font-size: 10px; color: #1a5276; }
-    .lr-table tr.weekend { background: #f8f8f6; }
-    .lr-table tr.lr-today td { background: #c8dcea; }
+    .lr-evt  { font-size: 10px; color: #1A3073; }
+    .lr-table tr.weekend { background: #F2F2F2; }
+    .lr-table tr.lr-today td { background: #c0c4f9; }
 
     /* ── MODALS ── */
     .modal {
@@ -329,7 +329,7 @@
       border-radius: 5px;
       box-shadow: 0 4px 20px rgba(0,0,0,0.25);
     }
-    .modal-box h3 { color: #2c5f7a; margin-bottom: 14px; font-size: 16px; }
+    .modal-box h3 { color: #0511F2; margin-bottom: 14px; font-size: 16px; }
     .modal-box label { display: block; font-size: 12px; font-weight: bold; margin-bottom: 3px; color: #555; }
     .modal-box input,
     .modal-box textarea,
@@ -351,8 +351,8 @@
       cursor: pointer;
       font-size: 13px;
     }
-    .btn-save   { background: #2c5f7a; color: white; font-weight: bold; }
-    .btn-save:hover { background: #1e4a5c; }
+    .btn-save   { background: #0511F2; color: white; font-weight: bold; }
+    .btn-save:hover { background: #1A3073; }
     .btn-cancel { background: #ddd; color: #333; }
 
     /* ── YEAR VIEW ── */
@@ -370,10 +370,10 @@
       justify-content: center;
     }
     .year-nav button {
-      background: #2c5f7a; color: white; border: none;
+      background: #0511F2; color: white; border: none;
       padding: 4px 14px; cursor: pointer; border-radius: 3px; font-size: 15px;
     }
-    .year-nav span { font-size: 20px; font-weight: bold; color: #1e3a4a; }
+    .year-nav span { font-size: 20px; font-weight: bold; color: #020659; }
     .months-grid {
       display: grid;
       grid-template-columns: repeat(3, 1fr);
@@ -388,14 +388,14 @@
       text-align: center;
       font-size: 13px;
       font-weight: bold;
-      color: #2c5f7a;
+      color: #0511F2;
       margin-bottom: 6px;
       padding-bottom: 4px;
       border-bottom: 1px solid #eee;
     }
     .mini-cal { width: 100%; border-collapse: collapse; margin-bottom: 6px; }
     .mini-cal th {
-      background: #2c5f7a; color: white;
+      background: #020659; color: white;
       font-size: 10px; padding: 3px 2px; text-align: center;
     }
     .mini-cal td {
@@ -403,10 +403,10 @@
       text-align: center; border: 1px solid #f5f5f5;
     }
     .mini-cal td.mc-today {
-      background: #2c5f7a; color: white; border-radius: 50%; font-weight: bold;
+      background: #0511F2; color: white; border-radius: 50%; font-weight: bold;
     }
     .mini-cal td.mc-event {
-      background: #e0edf5; color: #1a5276; font-weight: bold;
+      background: #e0e2fd; color: #1A3073; font-weight: bold;
     }
     .yr-events { font-size: 10px; }
     .yr-event-row {
@@ -416,7 +416,7 @@
       border-bottom: 1px solid #f5f5f5;
     }
     .yr-event-date { min-width: 30px; color: #888; font-size: 10px; flex-shrink: 0; }
-    .yr-event-text { color: #1a5276; word-break: break-word; }
+    .yr-event-text { color: #1A3073; word-break: break-word; }
 
     /* ── COLOR PALETTE ── */
     .palette-btn {
@@ -478,8 +478,8 @@
   <button class="add-btn" onclick="openNoteModal()">+ Note</button>
   <button class="add-btn" onclick="openIdeaModal()">+ Idea</button>
   <span style="margin-left:auto;display:flex;align-items:center;gap:6px;">
-    <button onclick="exportData()" style="font-size:11px;background:#3a7a5c;border:1px solid rgba(255,255,255,0.4);color:white;padding:3px 10px;border-radius:3px;cursor:pointer;" title="Copy all data to clipboard">&#128203; Export</button>
-    <button onclick="openModal('modal-import')" style="font-size:11px;background:#7a5c3a;border:1px solid rgba(255,255,255,0.4);color:white;padding:3px 10px;border-radius:3px;cursor:pointer;" title="Paste data from clipboard">&#128228; Import</button>
+    <button onclick="exportData()" style="font-size:11px;background:#1A3073;border:1px solid rgba(255,255,255,0.4);color:white;padding:3px 10px;border-radius:3px;cursor:pointer;" title="Copy all data to clipboard">&#128203; Export</button>
+    <button onclick="openModal('modal-import')" style="font-size:11px;background:#020659;border:1px solid rgba(255,255,255,0.4);color:white;padding:3px 10px;border-radius:3px;cursor:pointer;" title="Paste data from clipboard">&#128228; Import</button>
     <div class="nav-sep"></div>
     <span id="sync-status" style="font-size:11px;color:#aaa;">&#9675; Local Only</span>
     <button id="sync-btn" onclick="openModal('modal-sync')" style="font-size:11px;">&#8635; Drive</button>
@@ -682,7 +682,7 @@
         Open Existing nca_data.json
       </button>
       <button class="btn-save" onclick="createNewSyncFile()"
-              style="padding:10px;background:#3a7a5c;">
+              style="padding:10px;background:#1A3073;">
         Create New Sync File
       </button>
       <button class="btn-cancel" onclick="closeModal('modal-sync')" style="padding:10px;">
